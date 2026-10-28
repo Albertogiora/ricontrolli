@@ -116,15 +116,15 @@
 
 <script>
 // ===================== LETTURA DEL FOGLIO =====================
-const MODEL_VERSION = 1;
+const MODEL_VERSION = 2;
 const SW = 2000, SH = 1400;                         // foglio raddrizzato (cornice rossa = bordi)
 const REG = { x: 0, y: 560, w: 1240, h: 600 };      // zona della tabella "Nacharbeit"
 const COLS = { data: [30, 134], hu: [220, 384], contr: [384, 500], ril: [500, 628], scart: [628, 737] };
 const TOP = 634, BOT = 1136, ROWH = 33.6;
 const CH = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-'];
 // [nome, uscite, ingressi, kh, kw, padH, padW]
-const LAYERS = [['c1', 32, 1, 3, 3, 1, 1], ['c2', 64, 32, 3, 3, 1, 1], ['c3', 96, 64, 3, 3, 1, 1], ['c4', 96, 96, 3, 3, 1, 1],
-                ['c5', 128, 96, 4, 3, 0, 1], ['c6', 128, 128, 1, 5, 0, 2], ['out', 12, 128, 1, 1, 0, 0]];
+const LAYERS = [['c1', 16, 1, 3, 3, 1, 1], ['c2', 32, 16, 3, 3, 1, 1], ['c3', 48, 32, 3, 3, 1, 1], ['c4', 64, 48, 3, 3, 1, 1],
+                ['c5', 96, 64, 4, 3, 0, 1], ['c6', 96, 96, 1, 5, 0, 2], ['out', 12, 96, 1, 1, 0, 0]];
 
 let modelP = null;
 function loadModel() {

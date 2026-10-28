@@ -46,8 +46,8 @@ def sample():
 class Seq(nn.Module):
     def __init__(s):
         super().__init__()
-        s.c1 = nn.Conv2d(1, 32, 3, padding=1); s.c2 = nn.Conv2d(32, 64, 3, padding=1); s.c3 = nn.Conv2d(64, 96, 3, padding=1)
-        s.c4 = nn.Conv2d(96, 96, 3, padding=1); s.c5 = nn.Conv2d(96, 128, (4, 3), padding=(0, 1)); s.c6 = nn.Conv2d(128, 128, (1, 5), padding=(0, 2)); s.out = nn.Conv2d(128, 12, 1)
+        s.c1 = nn.Conv2d(1, 16, 3, padding=1); s.c2 = nn.Conv2d(16, 32, 3, padding=1); s.c3 = nn.Conv2d(32, 48, 3, padding=1)
+        s.c4 = nn.Conv2d(48, 64, 3, padding=1); s.c5 = nn.Conv2d(64, 96, (4, 3), padding=(0, 1)); s.c6 = nn.Conv2d(96, 96, (1, 5), padding=(0, 2)); s.out = nn.Conv2d(96, 12, 1)
     def forward(s, x):                       # x: N x 1 x 32 x W
         x = F.max_pool2d(F.relu(s.c1(x)), 2)  # 16 x W/2
         x = F.max_pool2d(F.relu(s.c2(x)), 2)  # 8 x W/4
