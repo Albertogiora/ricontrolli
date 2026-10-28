@@ -11,10 +11,10 @@
 <style>
   :root {
     --red: #c8102e; --red-soft: #fdecee; --bg: #f4f4f6; --card: #fff;
-    --text: #1c1c1e; --muted: #6b6b73; --line: #dcdce1; --ok: #1f8a4c; --warn: #b26a00;
+    --text: #1c1c1e; --muted: #6b6b73; --line: #dcdce1; --ok: #1f8a4c; --warn: #b26a00; --warn-soft: #fff4e0;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --red-soft: #3a1a1e; --bg: #111113; --card: #1c1c1f; --text: #f2f2f5; --muted: #9a9aa3; --line: #33333a; }
+    :root { --red-soft: #3a1a1e; --bg: #111113; --card: #1c1c1f; --text: #f2f2f5; --muted: #9a9aa3; --line: #33333a; --warn-soft: #3a2c10; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -22,7 +22,7 @@
   header { background: var(--red); color: #fff; padding: calc(env(safe-area-inset-top) + 14px) 16px 14px; }
   header h1 { margin: 0; font-size: 20px; }
   header p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
-  main { padding: 12px 16px; max-width: 720px; margin: 0 auto; }
+  main { padding: 12px 16px; max-width: 760px; margin: 0 auto; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
   .panel h2 { margin: 0 0 8px; font-size: 15px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -35,41 +35,45 @@
   input[type=file] { display: none; }
   #reportInfo { font-size: 14px; margin-bottom: 10px; }
   #reportInfo b { word-break: break-all; }
-  #ocrStatus { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1em; }
+  #status { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1em; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
   .card-head { display: flex; gap: 10px; padding: 10px; align-items: center; border-bottom: 1px solid var(--line); }
-  .card-head img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: var(--bg); flex: none; }
   .card-head .title { flex: 1; min-width: 0; }
   .card-head .title b { display: block; font-size: 16px; }
   .status { font-size: 13px; color: var(--muted); }
-  .status.ok { color: var(--ok); } .status.warn { color: var(--warn); }
-  .card-actions { display: flex; gap: 6px; padding: 8px 10px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
-  .group { padding: 10px; }
-  .group h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .status.ok { color: var(--ok); } .status.warn { color: var(--warn); } .status.err { color: var(--red); }
+  .hu-row { padding: 10px; border-bottom: 1px solid var(--line); }
+  .strip { display: block; width: 100%; border-radius: 6px; margin-bottom: 8px; background: #fff; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field .strip { margin: 2px 0 4px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .field.wide { grid-column: 1 / -1; }
+  .field.wide { margin-top: 8px; }
   .field label { font-size: 12px; color: var(--muted); }
-  .field input, .field select { width: 100%; font-size: 16px; padding: 9px 10px; border: 1px solid var(--line);
-        border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; }
-  .field.empty input, .field.empty select { border-color: var(--warn); }
-  .field.req.empty input { border-color: var(--red); background: var(--red-soft); }
-  .dup { margin: 0 10px 10px; padding: 8px 10px; border-radius: 8px; background: var(--red-soft); color: var(--red); font-size: 13px; font-weight: 600; }
-  details { padding: 0 10px 10px; font-size: 12px; color: var(--muted); }
-  details pre { white-space: pre-wrap; background: var(--bg); padding: 8px; border-radius: 8px; max-height: 200px; overflow: auto; }
+  .field input { width: 100%; font-size: 16px; padding: 9px 10px; border: 1px solid var(--line);
+        border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; -webkit-appearance: none; }
+  .field.hu input { font-variant-numeric: tabular-nums; letter-spacing: .04em; font-weight: 600; }
+  .field.unsure input { border-color: var(--warn); background: var(--warn-soft); }
+  .field.bad input { border-color: var(--red); background: var(--red-soft); }
+  .row-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+  .row-msg { font-size: 12px; color: var(--red); font-weight: 600; }
+  .card-actions { display: flex; gap: 6px; padding: 8px 10px; flex-wrap: wrap; }
   .empty-state { text-align: center; color: var(--muted); font-size: 14px; padding: 18px 8px; }
   footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px);
-           background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
-  footer .inner { max-width: 720px; margin: 0 auto; }
+           background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
+  footer .inner { max-width: 760px; margin: 0 auto; }
   .tip { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .legend .l-unsure::before { background: var(--warn-soft); border: 1px solid var(--warn); }
+  .legend .l-bad::before { background: var(--red-soft); border: 1px solid var(--red); }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <header>
   <h1>Ricontrolli</h1>
-  <p>Fogli Gesperrt / Bloccato → Excel</p>
+  <p>Fogli Gesperrt / Bloccato → Excel (una riga per HU)</p>
 </header>
 
 <main>
@@ -81,18 +85,29 @@
       <button class="btn" id="newReport">Nuovo report</button>
     </div>
     <input type="file" id="xlsxInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-    <p class="tip">Scegli il file dalla cartella OneDrive nell'app File. Alla fine lo risalvi sopra lo stesso file.</p>
+    <p class="tip">Apri il file condiviso dalla cartella OneDrive nell'app File. Ogni giorno ha il suo foglio di lavoro; alla fine lo risalvi sopra lo stesso file.</p>
   </section>
 
   <section class="panel">
     <h2>2 · Fogli da registrare</h2>
     <label class="btn primary big" for="imgInput">📷 Aggiungi fogli (foto)</label>
     <input type="file" id="imgInput" accept="image/*" multiple>
-    <div id="ocrStatus"></div>
-    <p class="tip">Fotografa il foglio intero, dritto, con buona luce. Puoi selezionare più foto insieme.</p>
+    <div id="status"></div>
+    <p class="tip">Fotografa il foglio <b>intero</b> (si deve vedere tutta la cornice rossa), dall'alto, con buona luce. Va bene anche girato.</p>
+    <div class="legend"><span class="l-unsure">lettura incerta</span><span class="l-bad">da correggere</span></div>
   </section>
 
   <div id="cards"><div class="empty-state">Nessun foglio in coda.</div></div>
+
+  <section class="panel">
+    <h2>3 · Migliora la lettura</h2>
+    <div id="trainInfo" class="tip" style="margin-top:0">…</div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="exportTrain">📤 Esporta correzioni</button>
+      <button class="btn" id="clearTrain">Svuota</button>
+    </div>
+    <p class="tip">Ogni volta che salvi, l'app ricorda le cifre lette e i valori corretti. Mandami il file esportato: riaddestro il modello sulla tua calligrafia.</p>
+  </section>
 </main>
 
 <footer><div class="inner">
@@ -100,302 +115,569 @@
 </div></footer>
 
 <script>
-// CORE-START  (logica pura: lettura campi e scrittura Excel)
-const COLS = [
-  { k: 'inserito',     l: 'Inserito il',          hidden: true },
-  { k: 'nr',           l: 'Nr. blocco',           auto: true },
-  { k: 'barcode',      l: 'Codice a barre',       auto: true, kb: 'numeric' },
-  { k: 'kodex',        l: 'Kodex',                auto: true, kb: 'numeric' },
-  { k: 'teil',         l: 'Teil Nr.',             auto: true },
-  { k: 'denom',        l: 'Denominazione',        auto: true },
-  { k: 'cliente',      l: 'Cliente',              auto: true },
-  { k: 'qtaBloc',      l: 'Q.tà bloccata',        auto: true, num: true },
-  { k: 'motivo',       l: 'Motivo',               auto: true, wide: true },
-  { k: 'dataBlocco',   l: 'Data blocco',          auto: true, date: true },
-  { k: 'ora',          l: 'Ora blocco',           auto: true },
-  { k: 'collaudatore', l: 'Collaudatore',         auto: true },
-  { k: 'responsabile', l: 'Responsabile blocco',  auto: true },
-  { k: 'decisione',    l: 'Decisione',            opts: ['Contr. 100%', 'Post lavorazione', 'Rottamare', 'Rispedire', 'In attesa'], def: 'Contr. 100%' },
-  { k: 'dataRic',      l: 'Data ricontrollo',     date: true, input: 'date' },
-  { k: 'turno',        l: 'Turno',                opts: ['', 'I', 'II', 'III'] },
-  { k: 'qtaContr',     l: 'Q.tà controllata',     num: true, req: true },
-  { k: 'qtaRil',       l: 'Q.tà rilavorata',      num: true },
-  { k: 'qtaScart',     l: 'Q.tà scartata',        num: true },
-  { k: 'operatore',    l: 'Operatore Nr.',        kb: 'numeric' },
-  { k: 'note',         l: 'Note / difetto',       wide: true },
-];
-const KEY_FIELDS = ['nr', 'kodex', 'teil', 'dataBlocco', 'qtaBloc', 'denom'];
-const NOT_NAMES = new Set(['GESPERRT', 'BLOCCATO', 'GESPERRT-BLOCCATO', 'KONTROLLE', 'BPR', 'GFK', 'FTC', 'HU']);
+// ===================== LETTURA DEL FOGLIO =====================
+const MODEL_VERSION = 1;
+const SW = 2000, SH = 1400;                         // foglio raddrizzato (cornice rossa = bordi)
+const REG = { x: 0, y: 560, w: 1240, h: 600 };      // zona della tabella "Nacharbeit"
+const COLS = { data: [30, 134], hu: [220, 384], contr: [384, 500], ril: [500, 628], scart: [628, 737] };
+const TOP = 634, BOT = 1136, ROWH = 33.6;
+const CH = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-'];
+// [nome, uscite, ingressi, kh, kw, padH, padW]
+const LAYERS = [['c1', 32, 1, 3, 3, 1, 1], ['c2', 64, 32, 3, 3, 1, 1], ['c3', 96, 64, 3, 3, 1, 1], ['c4', 96, 96, 3, 3, 1, 1],
+                ['c5', 128, 96, 4, 3, 0, 1], ['c6', 128, 128, 1, 5, 0, 2], ['out', 12, 128, 1, 1, 0, 0]];
 
-const clean = s => (s || '').replace(/[.…_]{2,}/g, ' ').replace(/\s{2,}/g, ' ').trim();
-
-function parseSheet(raw) {
-  const t = (raw || '').replace(/[|«»]/g, ' ').replace(/\r/g, '');
-  const r = {};
-  let m;
-
-  if ((m = t.match(/100\s*[%°]\s*[-–—]?\s*(\d{3,6})/))) r.nr = '100%-' + m[1];
-
-  // codice a barre: 8 cifre, preferibilmente subito dopo il Nr.
-  if ((m = t.match(/100\s*[%°]\s*[-–—]?\s*\d{3,6}\s+(\d{8})\b/)) || (m = t.match(/(?<![\d.\/])(\d{8})(?![\d.\/])/)))
-    r.barcode = m[1];
-
-  // Teil Nr. formato VW: 05E 121 070 F (O letta al posto di 0 viene corretta)
-  if ((m = t.match(/\b([0-9O]{2}[A-Z]\s?[0-9O]{3}\s?[0-9O]{3}(?:\s?[A-Z]{1,2})?)\b/)))
-    r.teil = m[1].replace(/O/g, (c, i, s) => (i < 2 || (i > 2 && /\d|O/.test(s[i]))) ? '0' : c).replace(/\s+/g, ' ').trim();
-
-  if ((m = t.match(/(?<!\d)(\d{9})(?!\d)/))) r.kodex = m[1];
-
-  if ((m = t.match(/(?:Stk|Stz)\.{0,3}[^\d\n]{0,15}?(\d{1,6})\b/i)) || (m = t.match(/bloc+\.[^\d\n]{0,15}?(\d{1,6})\b/)))
-    r.qtaBloc = m[1];
-
-  if ((m = t.match(/(\d{1,2})\s*[.\/]\s*(\d{1,2})\s*[.\/]\s*(20\d{2})/)))
-    r.dataBlocco = m[1].padStart(2, '0') + '/' + m[2].padStart(2, '0') + '/' + m[3];
-
-  if ((m = t.match(/(\d{1,2})\s*[:.]\s*(\d{2})\s*[:.]\s*(\d{2})/))) r.ora = `${m[1].padStart(2, '0')}:${m[2]}:${m[3]}`;
-
-  if ((m = t.match(/Motivo\s*[:;.]*\s*([^\n]{3,})/i))) r.motivo = clean(m[1]);
-
-  if ((m = t.match(/Lieferant\s*[:.…]*\s*([^\n]+)/i)) || (m = t.match(/Fornit\w*\.?\s*[:.…]*\s*([^\n]+)/i))) {
-    const v = clean(m[1]).split(/\s+(?:Gesp|Q\.?\s?t|Stk)/i)[0].trim();
-    if (v.length > 1) r.cliente = v;
-  }
-
-  const denLine = t.split('\n').find(l => /Teilebez|Denom/i.test(l) && /[A-ZÄÖÜ]{4,}/.test(l.replace(/Teilebez|Denom|Mater|Part/gi, '')));
-  if (denLine) {
-    const w = (denLine.match(/\b[A-ZÄÖÜ][A-ZÄÖÜ\-]{3,}\b/g) || []).find(x => !NOT_NAMES.has(x));
-    if (w) r.denom = w;
-  }
-
-  if ((m = t.match(/[Cc]ollaudatore[\s:.…]*([A-ZÄÖÜ][A-ZÄÖÜ\-]{2,}(?:\s[A-ZÄÖÜ]{2,})?)/))) r.collaudatore = m[1];
-
-  if ((m = t.match(/bloccato[\s:.…]*([A-ZÄÖÜ][a-zà-ü]+(?:[\s.]+[A-ZÄÖÜ][a-zà-ü]+)+)/))) r.responsabile = clean(m[1].replace(/\./g, ' '));
-
-  return r;
-}
-
-const scoreOf = v => KEY_FIELDS.filter(k => v[k]).length;
-const normH = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9àèéìòù]/g, '');
-
-function toSerial(s) {
-  if (!s) return null;
-  let m, y, mo, d;
-  if ((m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/))) { y = +m[1]; mo = +m[2]; d = +m[3]; }
-  else if ((m = String(s).match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/))) { d = +m[1]; mo = +m[2]; y = +m[3]; if (y < 100) y += 2000; }
-  else return null;
-  return (Date.UTC(y, mo - 1, d) - Date.UTC(1899, 11, 30)) / 864e5;
-}
-
-function cellValue(col, v) {
-  if (v === undefined || v === null || v === '') return null;
-  if (col.num) { const n = Number(String(v).replace(',', '.')); return isNaN(n) ? v : n; }
-  return v;
-}
-
-// Aggiunge le righe al foglio "Ricontrolli" (o al primo foglio) senza toccare le righe esistenti.
-function appendRows(XLSX, wb, rows) {
-  if (!wb) wb = XLSX.utils.book_new();
-  let name = wb.SheetNames.find(n => normH(n) === 'ricontrolli') || wb.SheetNames[0];
-  if (!name) { name = 'Ricontrolli'; XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), name); }
-  const ws = wb.Sheets[name];
-
-  const ref = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null;
-  const firstRow = ref ? XLSX.utils.sheet_to_json(ws, { header: 1, range: 0, defval: null })[0] || [] : [];
-  const header = firstRow.map(h => (h == null ? '' : String(h).trim()));
-  const sheetEmpty = !ref || header.every(h => h === '');
-  if (sheetEmpty) header.length = 0;
-
-  const idx = {};
-  for (const c of COLS) {
-    let i = header.findIndex(h => normH(h) === normH(c.l));
-    if (i < 0) { header.push(c.l); i = header.length - 1; }
-    idx[c.k] = i;
-  }
-  XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' });
-
-  const startRow = sheetEmpty ? 1 : Math.max(1, XLSX.utils.decode_range(ws['!ref']).e.r + 1);
-  const aoa = rows.map(v => {
-    const row = new Array(header.length).fill(null);
-    for (const c of COLS) row[idx[c.k]] = cellValue(c, v[c.k]);
-    return row;
-  });
-  XLSX.utils.sheet_add_aoa(ws, aoa, { origin: { r: startRow, c: 0 } });
-
-  // date come vere date Excel (gg/mm/aaaa)
-  rows.forEach((v, ri) => {
-    for (const c of COLS) {
-      const ser = c.date ? toSerial(v[c.k]) : null;
-      const fmt = c.k === 'inserito' ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy';
-      const val = c.k === 'inserito' ? v.inserito : ser;
-      if (val == null || (!c.date && c.k !== 'inserito')) continue;
-      ws[XLSX.utils.encode_cell({ r: startRow + ri, c: idx[c.k] })] = { t: 'n', v: val, z: fmt };
+let modelP = null;
+function loadModel() {
+  if (!modelP) modelP = fetch('model.bin?v=' + MODEL_VERSION).then(r => {
+    if (!r.ok) throw new Error('model.bin ' + r.status);
+    return r.arrayBuffer();
+  }).then(buf => {
+    const f = new Float32Array(buf); let o = 0; const m = {};
+    for (const [n, oc, ic, kh, kw] of LAYERS) {
+      m[n] = { w: f.subarray(o, o += oc * ic * kh * kw), b: f.subarray(o, o += oc) };
     }
-  });
-
-  ws['!cols'] = header.map((h, i) => (ws['!cols'] && ws['!cols'][i]) || { wch: Math.max(10, String(h).length + 2) });
-  return { wb, sheetName: name, added: rows.length };
+    if (o !== f.length) throw new Error('model.bin: dimensione inattesa');
+    return m;
+  }).catch(e => { modelP = null; throw e; });
+  return modelP;
 }
 
-function existingNrs(XLSX, wb) {
-  const out = new Set();
-  if (!wb) return out;
-  const name = wb.SheetNames.find(n => normH(n) === 'ricontrolli') || wb.SheetNames[0];
-  const data = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: null });
-  if (!data.length) return out;
-  const i = data[0].findIndex(h => normH(h) === normH('Nr. blocco'));
-  if (i < 0) return out;
-  data.slice(1).forEach(r => r[i] && out.add(String(r[i]).trim()));
+function conv(x, C, H, W, L, p) {
+  const [, OC, , KH, KW, PH, PW] = L;
+  const OH = H + 2 * PH - KH + 1, OW = W + 2 * PW - KW + 1;
+  const out = new Float32Array(OC * OH * OW);
+  for (let oc = 0; oc < OC; oc++) {
+    const ob = oc * OH * OW;
+    out.fill(p.b[oc], ob, ob + OH * OW);
+    for (let ic = 0; ic < C; ic++) {
+      const ib = ic * H * W;
+      for (let ky = 0; ky < KH; ky++) for (let kx = 0; kx < KW; kx++) {
+        const wv = p.w[((oc * C + ic) * KH + ky) * KW + kx];
+        if (wv === 0) continue;
+        const x0 = Math.max(0, PW - kx), x1 = Math.min(OW, W + PW - kx);
+        for (let oy = 0; oy < OH; oy++) {
+          const iy = oy + ky - PH;
+          if (iy < 0 || iy >= H) continue;
+          const orow = ob + oy * OW, irow = ib + iy * W + kx - PW;
+          for (let ox = x0; ox < x1; ox++) out[orow + ox] += wv * x[irow + ox];
+        }
+      }
+    }
+  }
+  return [out, OC, OH, OW];
+}
+const relu = a => { for (let i = 0; i < a.length; i++) if (a[i] < 0) a[i] = 0; return a; };
+function pool(x, C, H, W, ph, pw) {
+  const OH = Math.floor(H / ph), OW = Math.floor(W / pw), out = new Float32Array(C * OH * OW);
+  for (let c = 0; c < C; c++) for (let y = 0; y < OH; y++) for (let xx = 0; xx < OW; xx++) {
+    let m = -Infinity;
+    for (let i = 0; i < ph; i++) for (let j = 0; j < pw; j++) m = Math.max(m, x[c * H * W + (y * ph + i) * W + xx * pw + j]);
+    out[c * OH * OW + y * OW + xx] = m;
+  }
+  return [out, C, OH, OW];
+}
+// restituisce le probabilità [T][12]
+function forward(M, img, W) {
+  let t = [img, 1, 32, W];
+  t = conv(...t, LAYERS[0], M.c1); relu(t[0]); t = pool(...t, 2, 2);
+  t = conv(...t, LAYERS[1], M.c2); relu(t[0]); t = pool(...t, 2, 2);
+  t = conv(...t, LAYERS[2], M.c3); relu(t[0]); t = pool(...t, 2, 1);
+  t = conv(...t, LAYERS[3], M.c4); relu(t[0]);
+  t = conv(...t, LAYERS[4], M.c5); relu(t[0]);
+  t = conv(...t, LAYERS[5], M.c6); relu(t[0]);
+  t = conv(...t, LAYERS[6], M.out);
+  const [o, , , T] = t, P = [];
+  for (let j = 0; j < T; j++) {
+    let mx = -Infinity; for (let k = 0; k < 12; k++) mx = Math.max(mx, o[k * T + j]);
+    let s = 0; const p = new Float64Array(12);
+    for (let k = 0; k < 12; k++) s += (p[k] = Math.exp(o[k * T + j] - mx));
+    for (let k = 0; k < 12; k++) p[k] /= s;
+    P.push(p);
+  }
+  return P;
+}
+function greedy(P) {
+  let s = '', prev = 0, conf = 1;
+  for (const p of P) {
+    let k = 0; for (let i = 1; i < 12; i++) if (p[i] > p[k]) k = i;
+    if (k && k !== prev) { s += CH[k]; conf = Math.min(conf, p[k]); }
+    prev = k;
+  }
+  return { s, conf };
+}
+// ricerca a fascio CTC: le letture più probabili (solo cifre)
+function beam(P, BW = 40) {
+  let B = new Map([['', [1, 0]]]);
+  for (const p of P) {
+    const N = new Map();
+    const add = (k, b, nb) => { const a = N.get(k) || [0, 0]; a[0] += b; a[1] += nb; N.set(k, a); };
+    for (const [pre, [pb, pnb]] of B) {
+      add(pre, (pb + pnb) * p[0], 0);
+      const last = pre[pre.length - 1];
+      for (let k = 1; k <= 10; k++) {
+        const c = CH[k];
+        if (c === last) { add(pre + c, 0, pb * p[k]); add(pre, 0, pnb * p[k]); }
+        else add(pre + c, 0, (pb + pnb) * p[k]);
+      }
+    }
+    B = new Map([...N].sort((a, b) => (b[1][0] + b[1][1]) - (a[1][0] + a[1][1])).slice(0, BW));
+  }
+  const tot = [...B.values()].reduce((s, v) => s + v[0] + v[1], 0) || 1;
+  return [...B].map(([k, v]) => ({ s: k, p: (v[0] + v[1]) / tot }));
+}
+function readHU(P) {
+  const c = beam(P);
+  const hit = c.find(x => x.s.length === 9 && x.s.startsWith('190')) || c.find(x => x.s.length === 9) || c[0];
+  return { s: hit.s, conf: hit.p };
+}
+
+// ---------- geometria ----------
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(img.src); res(img); };
+    img.onerror = () => rej(new Error('Immagine non leggibile'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+function toPixels(img, max = 2000) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0, c.width, c.height);
+  return { d: g.getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height };
+}
+const isRedPx = (d, i, k = 45) => d[i] - Math.max(d[i + 1], d[i + 2]) > k;
+
+function morph(m, w, h, dil) {           // dilata/erode 3x3
+  const o = new Uint8Array(m.length);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = dil ? 0 : 1;
+    for (let dy = -1; dy <= 1 && v === (dil ? 0 : 1); dy++) for (let dx = -1; dx <= 1; dx++) {
+      const yy = y + dy, xx = x + dx;
+      const s = (yy < 0 || yy >= h || xx < 0 || xx >= w) ? 0 : m[yy * w + xx];
+      if (dil ? s : !s) { v = dil ? 1 : 0; break; }
+    }
+    o[y * w + x] = v;
+  }
+  return o;
+}
+// componenti connesse (8 vicini)
+function components(m, w, h, keepPx) {
+  const lab = new Int32Array(m.length), out = [], st = [];
+  for (let i = 0; i < m.length; i++) {
+    if (!m[i] || lab[i]) continue;
+    const c = { n: 0, x0: w, y0: h, x1: -1, y1: -1, px: keepPx ? [] : null };
+    lab[i] = out.length + 1; st.push(i);
+    while (st.length) {
+      const j = st.pop(), x = j % w, y = (j / w) | 0;
+      c.n++; if (x < c.x0) c.x0 = x; if (x > c.x1) c.x1 = x; if (y < c.y0) c.y0 = y; if (y > c.y1) c.y1 = y;
+      if (keepPx) c.px.push(j);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+        const k = yy * w + xx;
+        if (m[k] && !lab[k]) { lab[k] = out.length + 1; st.push(k); }
+      }
+    }
+    out.push(c);
+  }
   return out;
 }
-// CORE-END
+// trova i 4 angoli della cornice rossa
+function findFrame(P) {
+  const s = 4, w = Math.floor(P.w / s), h = Math.floor(P.h / s);
+  let m = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) m[y * w + x] = isRedPx(P.d, ((y * s + 2) * P.w + x * s + 2) * 4) ? 1 : 0;
+  m = morph(morph(m, w, h, true), w, h, true); m = morph(morph(m, w, h, false), w, h, false);
+  const cs = components(m, w, h, true);
+  if (!cs.length) return null;
+  const c = cs.reduce((a, b) => (b.n > a.n ? b : a));
+  if (c.n < w * h * 0.04) return null;
+  let tl, tr, br, bl, a = Infinity, b = -Infinity, e = -Infinity, f = Infinity;
+  for (const j of c.px) {
+    const x = j % w, y = (j / w) | 0;
+    if (x + y < a) { a = x + y; tl = [x, y]; } if (x + y > b) { b = x + y; br = [x, y]; }
+    if (x - y > e) { e = x - y; tr = [x, y]; } if (x - y < f) { f = x - y; bl = [x, y]; }
+  }
+  const q = [tl, tr, br, bl].map(([x, y]) => [x * s + s / 2, y * s + s / 2]);
+  // il foglio intero è un rettangolo circa 10:7 che occupa buona parte della foto
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const L1 = (d(q[0], q[1]) + d(q[3], q[2])) / 2, L2 = (d(q[0], q[3]) + d(q[1], q[2])) / 2;
+  const ratio = Math.max(L1, L2) / Math.min(L1, L2), area = L1 * L2 / (P.w * P.h);
+  const cut = c.x0 <= 1 || c.y0 <= 1 || c.x1 >= w - 2 || c.y1 >= h - 2 || ratio < 1.2 || ratio > 1.75 || area < 0.2;
+  return { q, cut };
+}
+// omografia che porta i punti src (4) nei punti dst (4)
+function homography(src, dst) {
+  const A = [], bb = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); bb.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); bb.push(v);
+  }
+  for (let i = 0; i < 8; i++) {
+    let p = i; for (let r = i + 1; r < 8; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+    [A[i], A[p]] = [A[p], A[i]]; [bb[i], bb[p]] = [bb[p], bb[i]];
+    for (let r = 0; r < 8; r++) if (r !== i) {
+      const f = A[r][i] / A[i][i];
+      for (let c = i; c < 8; c++) A[r][c] -= f * A[i][c];
+      bb[r] -= f * bb[i];
+    }
+  }
+  const h = bb.map((v, i) => v / A[i][i]); h.push(1);
+  return (x, y) => { const z = h[6] * x + h[7] * y + 1; return [(h[0] * x + h[1] * y + h[2]) / z, (h[3] * x + h[4] * y + h[5]) / z]; };
+}
+const CANON = [[0, 0], [SW, 0], [SW, SH], [0, SH]];
+// sceglie l'orientamento: lato lungo in orizzontale e titolo rosso in alto
+function orient(P, q) {
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const ks = d(q[0], q[1]) >= d(q[0], q[3]) ? [0, 2] : [1, 3];
+  let best = null;
+  for (const k of ks) {
+    const qq = [0, 1, 2, 3].map(i => q[(i + k) % 4]);
+    const H = homography(CANON, qq);
+    let red = 0, n = 0;
+    for (let y = 25; y < 100; y += 5) for (let x = 230; x < 1250; x += 6) {
+      const [u, v] = H(x, y), ui = Math.round(u), vi = Math.round(v);
+      if (ui < 0 || vi < 0 || ui >= P.w || vi >= P.h) continue;
+      n++; red += isRedPx(P.d, (vi * P.w + ui) * 4);
+    }
+    const sc = n ? red / n : 0;
+    if (!best || sc > best.sc) best = { sc, H };
+  }
+  return best.H;
+}
+// raddrizza una zona del foglio (coordinate canoniche) con interpolazione bilineare
+function warp(P, H, R) {
+  const out = new Uint8ClampedArray(R.w * R.h * 4);
+  for (let y = 0; y < R.h; y++) for (let x = 0; x < R.w; x++) {
+    const [u, v] = H(R.x + x, R.y + y), o = (y * R.w + x) * 4;
+    const x0 = Math.floor(u), y0 = Math.floor(v), fx = u - x0, fy = v - y0;
+    out[o + 3] = 255;
+    if (x0 < 0 || y0 < 0 || x0 >= P.w - 1 || y0 >= P.h - 1) { out[o] = out[o + 1] = out[o + 2] = 255; continue; }
+    const i = (y0 * P.w + x0) * 4, j = i + P.w * 4;
+    for (let c = 0; c < 3; c++) {
+      const a = P.d[i + c] * (1 - fx) + P.d[i + 4 + c] * fx, b = P.d[j + c] * (1 - fx) + P.d[j + 4 + c] * fx;
+      out[o + c] = a * (1 - fy) + b * fy;
+    }
+  }
+  return out;
+}
+// separa la penna (blu/nera) dal modulo rosso e toglie le righe della griglia
+function inkMask(rgba, w, h) {
+  const n = w * h, gray = new Float32Array(n), I = new Float64Array((w + 1) * (h + 1));
+  for (let i = 0; i < n; i++) gray[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+  for (let y = 0; y < h; y++) { let s = 0; for (let x = 0; x < w; x++) { s += gray[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + s; } }
+  const R = 20, m = new Uint8Array(n);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const x0 = Math.max(0, x - R), x1 = Math.min(w, x + R + 1), y0 = Math.max(0, y - R), y1 = Math.min(h, y + R + 1);
+    const bg = (I[y1 * (w + 1) + x1] - I[y0 * (w + 1) + x1] - I[y1 * (w + 1) + x0] + I[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+    const i = y * w + x, r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), gr = gray[i];
+    const red = r > 1.22 * Math.max(g, b) + 8;
+    const dark = gr < bg - 45 && mx - mn < 70;
+    const blue = b - r > 20 && b - g > 0 && gr < bg - 20;
+    m[i] = (dark || blue) && !red ? 1 : 0;
+  }
+  const kill = new Uint8Array(n);
+  for (let y = 0; y < h; y++) { let x = 0; while (x < w) { if (!m[y * w + x]) { x++; continue; } const s = x; while (x < w && m[y * w + x]) x++; if (x - s >= 45) for (let k = s; k < x; k++) kill[y * w + k] = 1; } }
+  for (let x = 0; x < w; x++) { let y = 0; while (y < h) { if (!m[y * w + x]) { y++; continue; } const s = y; while (y < h && m[y * w + x]) y++; if (y - s >= 28) for (let k = s; k < y; k++) kill[k * w + x] = 1; } }
+  for (let i = 0; i < n; i++) if (kill[i]) m[i] = 0;
+  return m;
+}
+// righe scritte: una banda per ogni HU
+function findBands(ink) {
+  const [hx0, hx1] = COLS.hu, w = REG.w, prof = [];
+  for (let y = TOP; y < BOT; y++) { let c = 0; for (let x = hx0 + 4; x < hx1 - 4; x++) c += ink[(y - REG.y) * w + x]; prof.push(c); }
+  const on = prof.map(c => c > 2), raw = [];
+  for (let y = 0; y < on.length; y++) {
+    if (!on[y]) continue;
+    const y0 = y; while (y < on.length && on[y]) y++;
+    if (y - y0 > 9) raw.push([y0, y]);
+  }
+  const res = [];
+  for (const [y0, y1] of raw) {
+    const k = Math.max(1, Math.round((y1 - y0) / ROWH));
+    if (k === 1) { res.push([y0, y1]); continue; }
+    const cuts = [y0];
+    for (let i = 1; i < k; i++) {
+      const c = Math.round(y0 + (y1 - y0) * i / k); let best = c - 8;
+      for (let t = c - 8; t < c + 8; t++) if (prof[t] < prof[best]) best = t;
+      cuts.push(best);
+    }
+    cuts.push(y1);
+    for (let i = 0; i + 1 < cuts.length; i++) res.push([cuts[i], cuts[i + 1]]);
+  }
+  return res.map(([a, b]) => [TOP + a - 5, TOP + b + 5]);
+}
+// ricampionamento "ad area" (media dei pixel coperti), separabile
+function areaResize(src, sw, sh, dw, dh) {
+  const tmp = new Float32Array(dw * sh), out = new Float32Array(dw * dh), fx = sw / dw, fy = sh / dh;
+  for (let y = 0; y < sh; y++) for (let x = 0; x < dw; x++) {
+    const a = x * fx, b = a + fx; let s = 0;
+    for (let k = Math.floor(a); k < Math.ceil(b) && k < sw; k++) s += src[y * sw + k] * (Math.min(b, k + 1) - Math.max(a, k));
+    tmp[y * dw + x] = s / fx;
+  }
+  for (let x = 0; x < dw; x++) for (let y = 0; y < dh; y++) {
+    const a = y * fy, b = a + fy; let s = 0;
+    for (let k = Math.floor(a); k < Math.ceil(b) && k < sh; k++) s += tmp[k * dw + x] * (Math.min(b, k + 1) - Math.max(a, k));
+    out[y * dw + x] = s / fy;
+  }
+  return out;
+}
+// ritaglia una cella e la porta all'altezza 32 come le immagini di addestramento
+function cellImage(ink, y0, y1, x0, x1) {
+  const w = (x1 - 4) - (x0 + 4), h = y1 - y0, c = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const yy = y0 + y - REG.y;
+    if (yy >= 0 && yy < REG.h) c[y * w + x] = ink[yy * REG.w + x0 + 4 + x];
+  }
+  const keep = new Uint8Array(w * h);
+  for (const k of components(c, w, h, true)) {
+    const cw = k.x1 - k.x0 + 1, ch = k.y1 - k.y0 + 1;
+    if (k.n < 15 || (cw > 3 * ch && ch < 9)) continue;   // puntini, trattini e resti di riga
+    for (const j of k.px) keep[j] = 1;
+  }
+  let X0 = w, Y0 = h, X1 = -1, Y1 = -1, n = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (keep[y * w + x]) { n++; X0 = Math.min(X0, x); X1 = Math.max(X1, x); Y0 = Math.min(Y0, y); Y1 = Math.max(Y1, y); }
+  if (n < 25) return null;
+  X0 = Math.max(0, X0 - 2); Y0 = Math.max(0, Y0 - 2); X1 = Math.min(w - 1, X1 + 2); Y1 = Math.min(h - 1, Y1 + 2);
+  const bw = X1 - X0 + 1, bh = Y1 - Y0 + 1, box = new Float32Array(bw * bh);
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) box[y * bw + x] = keep[(Y0 + y) * w + X0 + x];
+  const dh = 28, dw = Math.max(4, Math.floor(bw * dh / bh));
+  const r = areaResize(box, bw, bh, dw, dh);
+  let g = new Uint8Array(dw * dh), on = 0;
+  for (let i = 0; i < g.length; i++) { g[i] = r[i] * 255 > 40 ? 1 : 0; on += g[i]; }
+  if (on / g.length < 0.12) {                          // tratto sottile: ingrosso
+    const d = new Uint8Array(g.length);
+    for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++)
+      d[y * dw + x] = g[y * dw + x] | (x > 0 ? g[y * dw + x - 1] : 0) | (y > 0 ? g[(y - 1) * dw + x] : 0) | (x > 0 && y > 0 ? g[(y - 1) * dw + x - 1] : 0);
+    g = d;
+  }
+  const W = dw + 8, img = new Float32Array(32 * W);
+  for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++) img[(y + 2) * W + x + 4] = g[y * dw + x];
+  return { img, W };
+}
+function parseDate(s) {
+  let d = s.split(/-+/).filter(Boolean);
+  if (d.length === 1 && (d[0].length === 4 || d[0].length === 6)) d = d[0].match(/../g);
+  if (d.length < 2 || !d.every(x => /^\d+$/.test(x))) return '';
+  const dd = +d[0], mm = +d[1];
+  if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return '';
+  const now = new Date();
+  let yy = d[2] ? 2000 + (+d[2].slice(-2)) : now.getFullYear();
+  if (!d[2] && new Date(yy, mm - 1, dd) - now > 30 * 864e5) yy--;
+  if (Math.abs(yy - now.getFullYear()) > 1) yy = now.getFullYear();
+  return `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+}
+function stripURL(rgba, y0, y1, x0, x1) {  // immagine a colori di un pezzo di riga, da mostrare sopra i campi
+  y0 -= 6; y1 += 6;
+  const h = y1 - y0, w = x1 - x0;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), im = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    const yy = y0 + y - REG.y; if (yy < 0 || yy >= REG.h) continue;
+    im.data.set(rgba.subarray((yy * REG.w + x0) * 4, (yy * REG.w + x1) * 4), y * w * 4);
+  }
+  g.putImageData(im, 0, 0);
+  return c.toDataURL('image/jpeg', 0.75);
+}
 
-// ---------- interfaccia ----------
+// legge un foglio: restituisce le righe (una per HU)
+async function readSheet(file) {
+  const M = await loadModel();
+  const P = toPixels(await loadImage(file));
+  const fr = findFrame(P);
+  if (!fr) throw new Error('Cornice rossa non trovata: rifai la foto con tutto il foglio.');
+  if (fr.cut) throw new Error('Il foglio è tagliato: deve vedersi tutta la cornice rossa.');
+  const H = orient(P, fr.q);
+  const rgba = warp(P, H, REG), ink = inkMask(rgba, REG.w, REG.h);
+  const rows = [];
+  let lastDate = '';
+  for (const [y0, y1] of findBands(ink)) {
+    const row = { id: uid(), data: '', hu: '', contr: '', ril: '', scart: '', note: '', pred: {}, conf: {} };
+    const cells = {};
+    for (const k of Object.keys(COLS)) {
+      const ci = cellImage(ink, y0, y1, ...COLS[k]);
+      if (!ci) continue;
+      const Pr = forward(M, ci.img, ci.W);
+      const r = k === 'hu' ? readHU(Pr) : greedy(Pr);
+      cells[k] = ci;
+      if (k === 'data') row.data = parseDate(r.s);
+      else { row[k] = r.s.replace(/\D/g, ''); row.conf[k] = r.conf; }
+    }
+    if (!row.data) row.data = lastDate;           // "u" / virgolette = come sopra
+    else lastDate = row.data;
+    if (!lastDate) { row.pred.data = row.data = today(); row.conf.data = 0; }   // data non letta: da controllare
+    for (const k of ['hu', 'contr', 'ril', 'scart']) row.pred[k] = row[k];
+    mem[row.id] = { strip: stripURL(rgba, y0, y1, 20, 740), noteStrip: stripURL(rgba, y0, y1, 960, 1232), cells };
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ===================== EXCEL =====================
+const XCOLS = [
+  { k: 'data', l: 'Data', date: true },
+  { k: 'hu', l: 'HU', num: true },
+  { k: 'contr', l: 'Q.tà controllata', num: true },
+  { k: 'ril', l: 'Q.tà rilavorata', num: true },
+  { k: 'scart', l: 'Q.tà scartata', num: true },
+  { k: 'note', l: 'Note' },
+];
+const normH = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9àèéìòù]/g, '');
+const sheetNameFor = iso => iso ? iso.split('-').reverse().join('-') : 'Senza data';
+const isoToSerial = iso => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 864e5 : null;
+};
+// aggiunge le righe: un foglio di lavoro per giorno, celle vuote se manca il valore
+function appendRows(XLSX, wb, rows) {
+  if (!wb) wb = XLSX.utils.book_new();
+  const byDay = new Map();
+  rows.forEach(r => { const n = sheetNameFor(r.data); if (!byDay.has(n)) byDay.set(n, []); byDay.get(n).push(r); });
+  for (const [name, rs] of byDay) {
+    if (!wb.Sheets[name]) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([XCOLS.map(c => c.l)]), name);
+    const ws = wb.Sheets[name];
+    const header = (XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })[0] || []).map(h => (h == null ? '' : String(h).trim()));
+    const idx = {};
+    for (const c of XCOLS) {
+      let i = header.findIndex(h => normH(h) === normH(c.l));
+      if (i < 0) { header.push(c.l); i = header.length - 1; }
+      idx[c.k] = i;
+    }
+    XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' });
+    const start = XLSX.utils.decode_range(ws['!ref']).e.r + 1;
+    rs.forEach((r, ri) => {
+      for (const c of XCOLS) {
+        const v = r[c.k];
+        if (v === undefined || v === null || v === '') continue;
+        const addr = XLSX.utils.encode_cell({ r: start + ri, c: idx[c.k] });
+        if (c.date) { const s = isoToSerial(v); ws[addr] = s == null ? { t: 's', v } : { t: 'n', v: s, z: 'dd/mm/yyyy' }; }
+        else if (c.num && /^\d+$/.test(v)) ws[addr] = { t: 'n', v: +v };
+        else ws[addr] = { t: 's', v: String(v) };
+      }
+    });
+    const rg = XLSX.utils.decode_range(ws['!ref']);
+    rg.e.r = Math.max(rg.e.r, start + rs.length - 1); rg.e.c = Math.max(rg.e.c, header.length - 1);
+    ws['!ref'] = XLSX.utils.encode_range(rg);
+    ws['!cols'] = header.map((h, i) => (ws['!cols'] && ws['!cols'][i]) || { wch: Math.max(11, String(h).length + 2) });
+  }
+  return wb;
+}
+function existingHUs(XLSX, wb) {
+  const out = new Set();
+  if (!wb) return out;
+  for (const n of wb.SheetNames) {
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: null });
+    if (!data.length) continue;
+    const i = data[0].findIndex(h => normH(h) === 'hu');
+    if (i >= 0) data.slice(1).forEach(r => r[i] != null && out.add(String(r[i]).trim()));
+  }
+  return out;
+}
+
+// ===================== CORREZIONI (per riaddestrare) =====================
+const db = (() => {
+  let p;
+  const open = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open('ricontrolli', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('samples', { autoIncrement: true });
+    r.onsuccess = () => res(r.result); r.onerror = () => { p = null; rej(r.error); };
+  }));
+  const tx = async (mode, fn) => {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const t = d.transaction('samples', mode), r = fn(t.objectStore('samples'));
+      t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    add: list => tx('readwrite', s => { list.forEach(x => s.add(x)); }),
+    count: () => tx('readonly', s => s.count()),
+    all: () => tx('readonly', s => s.getAll()),
+    clear: () => tx('readwrite', s => s.clear()),
+  };
+})();
+function packBits(img) {
+  const b = new Uint8Array(Math.ceil(img.length / 8));
+  for (let i = 0; i < img.length; i++) if (img[i]) b[i >> 3] |= 1 << (i & 7);
+  let s = ''; b.forEach(x => s += String.fromCharCode(x));
+  return btoa(s);
+}
+
+// ===================== INTERFACCIA =====================
 const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-
-let items = store.get('ric_items', []);      // { id, values, ocr, rot }
-let report = { wb: null, fileName: null, rows: 0, nrs: new Set() };
-const thumbs = {};                             // id -> dataURL (non salvate)
-const files = {};                              // id -> File
-let workerP = null;
+let sheets = store.get('ric2_sheets', []);         // [{ id, status, msg, rows: [...] }]
+let report = { wb: null, fileName: null, hus: new Set() };
+const mem = {};                                    // riga -> { strip, cells } (solo in memoria)
 let queue = Promise.resolve();
-
-const save = () => store.set('ric_items', items.map(({ id, values, ocr, rot }) => ({ id, values, ocr, rot })));
-const today = () => new Date().toISOString().slice(0, 10);
-const newValues = () => {
-  const v = {};
-  COLS.forEach(c => v[c.k] = c.def || '');
-  v.dataRic = today();
-  return v;
-};
-
-function setOcrStatus(s) { $('#ocrStatus').textContent = s; }
-
-function getWorker() {
-  if (!workerP) {
-    setOcrStatus('Carico il motore di lettura (solo la prima volta, qualche secondo)…');
-    workerP = Tesseract.createWorker(['deu', 'ita'], 1, {
-      logger: m => {
-        if (m.status === 'recognizing text' && current) setStatus(current, `Lettura… ${Math.round(m.progress * 100)}%`);
-      },
-    }).then(w => { setOcrStatus(''); return w; })
-      .catch(e => { workerP = null; setOcrStatus('Errore nel caricare l\'OCR: serve connessione la prima volta.'); throw e; });
-  }
-  return workerP;
-}
-
-function loadImage(file) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function renderImg(img, rot, max = 2200, gray = true) {
-  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-  const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
-  const c = document.createElement('canvas');
-  const swap = rot % 180 !== 0;
-  c.width = swap ? h : w; c.height = swap ? w : h;
-  const g = c.getContext('2d');
-  g.translate(c.width / 2, c.height / 2);
-  g.rotate(rot * Math.PI / 180);
-  g.drawImage(img, -w / 2, -h / 2, w, h);
-  if (gray) {
-    const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
-    for (let i = 0; i < p.length; i += 4) {
-      let y = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
-      y = Math.max(0, Math.min(255, (y - 128) * 1.4 + 128));
-      p[i] = p[i + 1] = p[i + 2] = y;
-    }
-    g.putImageData(d, 0, 0);
-  }
-  return c;
-}
-
-let current = null;
-async function processItem(it, forceRot) {
-  const file = files[it.id];
-  if (!file) return;
-  current = it;
-  try {
-    const worker = await getWorker();
-    const img = await loadImage(file);
-    const pref = store.get('ric_rot', 0);
-    const order = forceRot != null ? [forceRot] : [...new Set([pref, 0, 270, 90, 180])];
-    let best = null;
-    for (const rot of order) {
-      setStatus(it, `Lettura (rotazione ${rot}°)…`);
-      const { data } = await worker.recognize(renderImg(img, rot));
-      const vals = parseSheet(data.text);
-      const sc = scoreOf(vals);
-      if (!best || sc > best.sc) best = { rot, vals, text: data.text, sc };
-      if (sc >= 4) break;
-    }
-    it.rot = best.rot;
-    it.ocr = best.text;
-    if (best.sc >= 3) store.set('ric_rot', best.rot);
-    COLS.filter(c => c.auto).forEach(c => { if (best.vals[c.k]) it.values[c.k] = best.vals[c.k]; });
-    thumbs[it.id] = renderImg(img, best.rot, 300, false).toDataURL('image/jpeg', 0.7);
-    it.status = best.sc >= 4 ? 'ok' : 'warn';
-    it.msg = best.sc >= 4 ? 'Letto. Controlla e completa i campi a mano.' : 'Lettura parziale: controlla bene i campi.';
-  } catch (e) {
-    console.error(e);
-    it.status = 'warn'; it.msg = 'Lettura non riuscita: compila a mano.';
-  }
-  current = null;
-  save(); renderAll();
-}
-
-function setStatus(it, msg) {
-  const el = document.querySelector(`[data-id="${it.id}"] .status`);
-  if (el) { el.textContent = msg; el.className = 'status'; }
-}
+const save = () => store.set('ric2_sheets', sheets);
+const setStatus = s => { $('#status').textContent = s; };
 
 function addFiles(list) {
   for (const f of list) {
-    const it = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), values: newValues(), status: '', msg: 'In coda…' };
-    files[it.id] = f;
-    items.push(it);
-    queue = queue.then(() => processItem(it));
+    const sh = { id: uid(), status: '', msg: 'In coda…', rows: [] };
+    sheets.push(sh);
+    queue = queue.then(async () => {
+      sh.msg = 'Lettura…'; renderAll();
+      await new Promise(r => setTimeout(r, 30));     // lascia disegnare la pagina
+      const t0 = performance.now();
+      try {
+        sh.rows = await readSheet(f);
+        const s = ((performance.now() - t0) / 1000).toFixed(1);
+        sh.status = sh.rows.length ? 'ok' : 'warn';
+        sh.msg = sh.rows.length ? `${sh.rows.length} HU letti in ${s}s: controlla i campi colorati.` : 'Nessuna riga trovata: aggiungile a mano.';
+      } catch (e) {
+        console.error(e);
+        sh.status = 'err'; sh.msg = e.message.startsWith('model.bin') ? 'Modello non caricato: serve internet.' : e.message;
+      }
+      save(); renderAll();
+    });
   }
   save(); renderAll();
 }
 
-function isDup(it) {
-  const nr = (it.values.nr || '').trim();
-  if (!nr) return false;
-  return report.nrs.has(nr) || items.some(o => o !== it && (o.values.nr || '').trim() === nr);
+function rowProblems(r) {
+  const p = [];
+  if (r.hu && !/^\d{9}$/.test(r.hu)) p.push('HU di ' + r.hu.length + ' cifre');
+  if (r.hu && (report.hus.has(r.hu) || sheets.some(s => s.rows.some(o => o !== r && o.hu === r.hu)))) p.push('HU già presente');
+  const n = k => (r[k] ? +r[k] : 0);
+  if (r.contr && n('ril') + n('scart') > n('contr')) p.push('rilavorati + scarti > controllati');
+  return p;
+}
+function fieldState(r, k) {
+  if (k === 'hu' && r.hu && !/^\d{9}$/.test(r.hu)) return 'bad';
+  if (k === 'contr' && !r.contr && r.hu) return 'bad';
+  if (r.pred && k in r.pred && r[k] && r[k] === r.pred[k] && r.conf && r.conf[k] != null && r.conf[k] < 0.8) return 'unsure';
+  if (k === 'hu' && r.hu && !r.hu.startsWith('190') && r.hu === r.pred?.hu) return 'unsure';
+  return '';
 }
 
-function fieldEl(it, c) {
+function inputEl(r, k, label, opts = {}) {
   const wrap = document.createElement('div');
-  wrap.className = 'field' + (c.wide ? ' wide' : '') + (c.req ? ' req' : '');
-  const lab = document.createElement('label');
-  lab.textContent = c.l + (c.req ? ' *' : '');
-  let inp;
-  if (c.opts) {
-    inp = document.createElement('select');
-    c.opts.forEach(o => { const op = document.createElement('option'); op.value = o; op.textContent = o || '—'; inp.append(op); });
-  } else {
-    inp = document.createElement('input');
-    inp.type = c.input || 'text';
-    if (c.num) { inp.inputMode = 'numeric'; inp.pattern = '[0-9]*'; }
-    else if (c.kb) inp.inputMode = c.kb;
-    inp.autocapitalize = 'characters';
-    inp.autocomplete = 'off';
-  }
-  inp.value = it.values[c.k] || '';
-  const mark = () => wrap.classList.toggle('empty', !inp.value);
+  wrap.className = 'field ' + (opts.cls || '');
+  const lab = document.createElement('label'); lab.textContent = label;
+  const inp = document.createElement('input');
+  inp.type = opts.type || 'text';
+  if (opts.num) { inp.inputMode = 'numeric'; inp.pattern = '[0-9]*'; }
+  inp.autocomplete = 'off';
+  inp.value = r[k] || '';
+  const mark = () => { const st = fieldState(r, k); wrap.classList.toggle('unsure', st === 'unsure'); wrap.classList.toggle('bad', st === 'bad'); };
   inp.addEventListener('input', () => {
-    it.values[c.k] = inp.value; mark(); save();
-    if (c.k === 'nr') renderAll();
-    updateSave();
+    r[k] = opts.num ? inp.value.replace(/\D/g, '') : inp.value;
+    if (opts.num && inp.value !== r[k]) inp.value = r[k];
+    mark(); save(); updateSave();
+    const msg = wrap.closest('.hu-row')?.querySelector('.row-msg');
+    if (msg) msg.textContent = rowProblems(r).join(' · ');
   });
   mark();
   wrap.append(lab, inp);
@@ -405,74 +687,64 @@ function fieldEl(it, c) {
 function renderAll() {
   const box = $('#cards');
   box.innerHTML = '';
-  if (!items.length) {
-    box.innerHTML = '<div class="empty-state">Nessun foglio in coda.</div>';
-    updateSave(); return;
-  }
-  items.forEach((it, n) => {
-    const card = document.createElement('div');
-    card.className = 'card'; card.dataset.id = it.id;
-
+  if (!sheets.length) { box.innerHTML = '<div class="empty-state">Nessun foglio in coda.</div>'; updateSave(); return; }
+  sheets.forEach((sh, n) => {
+    const card = document.createElement('div'); card.className = 'card';
     const head = document.createElement('div'); head.className = 'card-head';
-    const img = document.createElement('img'); if (thumbs[it.id]) img.src = thumbs[it.id];
-    const tt = document.createElement('div'); tt.className = 'title';
-    tt.innerHTML = `<b></b><span class="status ${it.status || ''}"></span>`;
-    tt.querySelector('b').textContent = `${n + 1}. ${it.values.nr || 'Foglio'}${it.values.kodex ? ' · ' + it.values.kodex : ''}`;
-    tt.querySelector('.status').textContent = it.msg || '';
-    head.append(img, tt);
+    head.innerHTML = '<div class="title"><b></b><span class="status"></span></div>';
+    head.querySelector('b').textContent = `Foglio ${n + 1}` + (sh.rows.length ? ` · ${sh.rows.length} HU` : '');
+    const st = head.querySelector('.status'); st.textContent = sh.msg || ''; if (sh.status) st.classList.add(sh.status);
+    card.append(head);
+
+    sh.rows.forEach(r => {
+      const rw = document.createElement('div'); rw.className = 'hu-row';
+      if (mem[r.id]?.strip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Riga del foglio'; im.src = mem[r.id].strip; rw.append(im); }
+      const g = document.createElement('div'); g.className = 'grid';
+      g.append(inputEl(r, 'data', 'Data', { type: 'date' }), inputEl(r, 'hu', 'HU', { num: true, cls: 'hu' }));
+      const g3 = document.createElement('div'); g3.className = 'grid3';
+      g3.append(inputEl(r, 'contr', 'Q.tà contr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }));
+      const note = inputEl(r, 'note', 'Note', { cls: 'wide' });
+      if (mem[r.id]?.noteStrip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Note scritte sul foglio'; im.src = mem[r.id].noteStrip; note.querySelector('label').after(im); }
+      const foot = document.createElement('div'); foot.className = 'row-foot';
+      const msg = document.createElement('span'); msg.className = 'row-msg'; msg.textContent = rowProblems(r).join(' · ');
+      const del = document.createElement('button'); del.className = 'btn small'; del.textContent = '🗑 Riga';
+      del.onclick = () => { if (confirm('Eliminare questa riga?')) { sh.rows = sh.rows.filter(o => o !== r); delete mem[r.id]; save(); renderAll(); } };
+      foot.append(msg, del);
+      rw.append(g, g3, note, foot);
+      card.append(rw);
+    });
 
     const act = document.createElement('div'); act.className = 'card-actions';
-    if (files[it.id]) {
-      const rb = document.createElement('button'); rb.className = 'btn small'; rb.textContent = '↻ Ruota e rileggi';
-      rb.onclick = () => { const r = ((it.rot || 0) + 90) % 360; it.msg = 'In coda…'; renderAll(); queue = queue.then(() => processItem(it, r)); };
-      act.append(rb);
-    }
-    const del = document.createElement('button'); del.className = 'btn small'; del.textContent = '🗑 Rimuovi';
-    del.onclick = () => { if (confirm('Rimuovere questo foglio dalla coda?')) { items = items.filter(o => o !== it); save(); renderAll(); } };
-    act.append(del);
-
-    card.append(head, act);
-    if (isDup(it)) {
-      const d = document.createElement('div'); d.className = 'dup';
-      d.textContent = `⚠️ Nr. ${it.values.nr} è già presente nel report o in coda.`;
-      card.append(d);
-    }
-
-    const g1 = document.createElement('div'); g1.className = 'group';
-    g1.innerHTML = '<h3>Scritti a mano (da compilare)</h3>';
-    const grid1 = document.createElement('div'); grid1.className = 'grid';
-    COLS.filter(c => !c.auto && !c.hidden).forEach(c => grid1.append(fieldEl(it, c)));
-    g1.append(grid1);
-
-    const g2 = document.createElement('div'); g2.className = 'group';
-    g2.innerHTML = '<h3>Letti dal foglio (controlla)</h3>';
-    const grid2 = document.createElement('div'); grid2.className = 'grid';
-    COLS.filter(c => c.auto).forEach(c => grid2.append(fieldEl(it, c)));
-    g2.append(grid2);
-
-    card.append(g1, g2);
-    if (it.ocr) {
-      const det = document.createElement('details');
-      det.innerHTML = '<summary>Testo letto (per verifiche)</summary><pre></pre>';
-      det.querySelector('pre').textContent = it.ocr;
-      card.append(det);
-    }
+    const add = document.createElement('button'); add.className = 'btn small'; add.textContent = '＋ Aggiungi riga';
+    add.onclick = () => {
+      const last = sh.rows[sh.rows.length - 1];
+      sh.rows.push({ id: uid(), data: last ? last.data : today(), hu: '', contr: '', ril: '', scart: '', note: '', pred: {}, conf: {} });
+      save(); renderAll();
+    };
+    const del = document.createElement('button'); del.className = 'btn small'; del.textContent = '🗑 Rimuovi foglio';
+    del.onclick = () => { if (confirm('Rimuovere questo foglio dalla coda?')) { sh.rows.forEach(r => delete mem[r.id]); sheets = sheets.filter(o => o !== sh); save(); renderAll(); } };
+    act.append(add, del);
+    card.append(act);
     box.append(card);
   });
   updateSave();
 }
 
+const allRows = () => sheets.flatMap(s => s.rows);
 function updateSave() {
-  const b = $('#saveBtn');
-  b.disabled = !items.length;
-  b.textContent = items.length ? `💾 Salva su Excel (${items.length} ${items.length === 1 ? 'foglio' : 'fogli'})` : '💾 Salva su Excel';
+  const n = allRows().length, b = $('#saveBtn');
+  b.disabled = !n;
+  b.textContent = n ? `💾 Salva su Excel (${n} HU)` : '💾 Salva su Excel';
 }
-
 function updateReportInfo() {
   $('#reportInfo').innerHTML = report.fileName
-    ? `Report aperto: <b></b> · ${report.rows} righe già presenti`
+    ? `Report aperto: <b></b> · ${report.hus.size} HU già presenti`
     : 'Nessun report aperto: verrà creato un file nuovo.';
   if (report.fileName) $('#reportInfo b').textContent = report.fileName;
+}
+async function updateTrainInfo() {
+  try { const n = await db.count(); $('#trainInfo').textContent = `${n} campi salvati per l'addestramento · modello v${MODEL_VERSION}`; }
+  catch { $('#trainInfo').textContent = `Archivio correzioni non disponibile · modello v${MODEL_VERSION}`; }
 }
 
 $('#xlsxInput').addEventListener('change', async e => {
@@ -480,57 +752,75 @@ $('#xlsxInput').addEventListener('change', async e => {
   if (!f) return;
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellNF: true, cellStyles: true });
-    const name = wb.SheetNames.find(n => normH(n) === 'ricontrolli') || wb.SheetNames[0];
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }).length;
-    report = { wb, fileName: f.name, rows: Math.max(0, rows - 1), nrs: existingNrs(XLSX, wb) };
+    report = { wb, fileName: f.name, hus: existingHUs(XLSX, wb) };
     updateReportInfo(); renderAll();
   } catch (err) { alert('Non riesco a leggere questo file Excel.'); }
 });
-
 $('#newReport').onclick = () => {
   if (report.fileName && !confirm('Chiudere il report aperto e crearne uno nuovo?')) return;
-  report = { wb: null, fileName: null, rows: 0, nrs: new Set() };
+  report = { wb: null, fileName: null, hus: new Set() };
   updateReportInfo(); renderAll();
 };
-
 $('#imgInput').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
 
 $('#saveBtn').onclick = async () => {
-  const missing = items.filter(it => !it.values.qtaContr).length;
-  if (missing && !confirm(`${missing} fogli senza "Q.tà controllata". Salvo lo stesso?`)) return;
+  const rows = allRows();
+  const bad = rows.filter(r => rowProblems(r).length || !r.hu).length;
+  if (bad && !confirm(`${bad} righe hanno problemi (HU mancante, doppio o di lunghezza sbagliata…). Salvo lo stesso?`)) return;
 
-  const stamp = new Date();
-  const rows = items.map(it => ({
-    ...it.values,
-    inserito: (stamp.getTime() - stamp.getTimezoneOffset() * 6e4) / 864e5 + 25569,
-  }));
   const base = report.wb ? XLSX.read(XLSX.write(report.wb, { type: 'array', bookType: 'xlsx' }), { cellNF: true }) : null;
-  const { wb } = appendRows(XLSX, base, rows);
+  const wb = appendRows(XLSX, base, rows);
   const name = report.fileName || `Ricontrolli_${today()}.xlsx`;
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const file = new File([out], name, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
   try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
-    } else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(file); a.download = name; a.click();
-    }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click(); }
   } catch (err) {
     if (err.name === 'AbortError') return;
     alert('Salvataggio non riuscito: ' + err.message); return;
   }
+  if (!confirm(`Hai salvato "${name}"? Se sì svuoto la coda (${rows.length} HU).`)) return;
 
-  if (confirm(`Hai salvato "${name}"? Se sì svuoto la coda (${items.length} fogli).`)) {
-    report = { wb, fileName: name, rows: report.rows + rows.length, nrs: existingNrs(XLSX, wb) };
-    items = []; save(); updateReportInfo(); renderAll();
+  // memorizza cifre lette + valori finali, per riaddestrare il modello
+  const samples = [];
+  for (const r of rows) {
+    const cells = mem[r.id]?.cells || {};
+    for (const k of ['hu', 'contr', 'ril', 'scart']) {
+      if (!cells[k] || !r[k]) continue;
+      samples.push({ f: k, w: cells[k].W, b: packBits(cells[k].img), p: r.pred[k] ?? '', l: r[k], v: MODEL_VERSION, t: Date.now() });
+    }
   }
+  try { if (samples.length) await db.add(samples); } catch (e) { console.error(e); }
+  report = { wb, fileName: name, hus: existingHUs(XLSX, wb) };
+  sheets.forEach(s => s.rows.forEach(r => delete mem[r.id]));
+  sheets = []; save(); updateReportInfo(); renderAll(); updateTrainInfo();
+};
+
+$('#exportTrain').onclick = async () => {
+  let all;
+  try { all = await db.all(); } catch { alert('Archivio non disponibile.'); return; }
+  if (!all.length) { alert('Nessuna correzione salvata per ora.'); return; }
+  const fixed = all.filter(s => s.p !== s.l).length;
+  const file = new File([JSON.stringify({ app: 'ricontrolli', model: MODEL_VERSION, samples: all })],
+    `ricontrolli-correzioni-${today()}.json`, { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); }
+    setStatus(`Esportati ${all.length} campi (${fixed} corretti a mano).`);
+  } catch (e) { if (e.name !== 'AbortError') alert('Esportazione non riuscita: ' + e.message); }
+};
+$('#clearTrain').onclick = async () => {
+  if (!confirm('Cancellare le correzioni salvate? Fallo solo dopo averle esportate.')) return;
+  try { await db.clear(); } catch {}
+  updateTrainInfo();
 };
 
 renderAll();
 updateReportInfo();
-if (items.length) setOcrStatus(`Ripristinati ${items.length} fogli non ancora salvati (senza foto).`);
+updateTrainInfo();
+if (allRows().length) setStatus(`Ripristinati ${allRows().length} HU non ancora salvati (senza immagini).`);
+loadModel().catch(() => setStatus('Modello non caricato: serve internet la prima volta.'));
 </script>
 </body>
 </html>
