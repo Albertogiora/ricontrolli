@@ -46,6 +46,7 @@
   .strip { display: block; width: 100%; border-radius: 6px; margin-bottom: 8px; background: #fff; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .field .strip { margin: 2px 0 4px; }
+  .sheet-head { padding: 10px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--red) 6%, var(--card)); }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .field.wide { margin-top: 8px; }
@@ -68,7 +69,8 @@
   .legend .l-unsure::before { background: var(--warn-soft); border: 1px solid var(--warn); }
   .legend .l-bad::before { background: var(--red-soft); border: 1px solid var(--red); }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 </head>
 <body>
 <header>
@@ -485,7 +487,60 @@ function stripURL(rgba, y0, y1, x0, x1) {  // immagine a colori di un pezzo di r
   return c.toDataURL('image/jpeg', 0.75);
 }
 
-// legge un foglio: restituisce le righe (una per HU)
+// ---------- testo stampato in testa al foglio (Tesseract) ----------
+const HFIELDS = {                                    // x0, y0, x1, y1 nel foglio raddrizzato
+  denom: [215, 148, 495, 210],
+  codice: [930, 136, 1222, 204],
+  motivo: [1195, 220, 1992, 290],
+};
+let ocrP = null;
+function getOCR() {
+  if (!ocrP) ocrP = Tesseract.createWorker(['deu', 'ita'], 1)
+    .then(async w => { await w.setParameters({ tessedit_pageseg_mode: '7', preserve_interword_spaces: '1' }); return w; })
+    .catch(e => { ocrP = null; throw e; });
+  return ocrP;
+}
+// ritaglio in bianco e nero, ingrandito: solo il testo stampato, senza rosso né puntini
+function printCanvas(P, H, [x0, y0, x1, y1], scale = 2) {
+  const R = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, rgba = warp(P, H, R), n = R.w * R.h;
+  // nero = più scuro dello sfondo vicino (media 31x31) e non rosso
+  const gray = new Float32Array(n), I = new Float64Array((R.w + 1) * (R.h + 1)), m = new Uint8Array(n);
+  for (let i = 0; i < n; i++) gray[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+  for (let y = 0; y < R.h; y++) { let s = 0; for (let x = 0; x < R.w; x++) { s += gray[y * R.w + x]; I[(y + 1) * (R.w + 1) + x + 1] = I[y * (R.w + 1) + x + 1] + s; } }
+  for (let y = 0; y < R.h; y++) for (let x = 0; x < R.w; x++) {
+    const xa = Math.max(0, x - 15), xb = Math.min(R.w, x + 16), ya = Math.max(0, y - 15), yb = Math.min(R.h, y + 16);
+    const bg = (I[yb * (R.w + 1) + xb] - I[ya * (R.w + 1) + xb] - I[yb * (R.w + 1) + xa] + I[ya * (R.w + 1) + xa]) / ((xb - xa) * (yb - ya));
+    const i = y * R.w + x, r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+    m[i] = gray[i] < bg - 28 && !(r > 1.15 * Math.max(g, b) + 8) ? 1 : 0;
+  }
+  const keep = new Uint8Array(n);
+  for (const k of components(m, R.w, R.h, true)) {
+    if (k.n < 3 || (k.n < 30 && k.y1 - k.y0 < 5 && k.y0 > R.h * 0.6)) continue;   // puntini delle righe tratteggiate in basso
+    for (const j of k.px) keep[j] = 1;
+  }
+  for (let i = 0; i < keep.length; i++) { const v = keep[i] ? 0 : 255; rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = v; rgba[i * 4 + 3] = 255; }
+  const c = document.createElement('canvas'); c.width = R.w; c.height = R.h;
+  c.getContext('2d').putImageData(new ImageData(rgba, R.w, R.h), 0, 0);
+  const o = document.createElement('canvas'); o.width = R.w * scale; o.height = R.h * scale;
+  const g = o.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, o.width, o.height); g.drawImage(c, 0, 0, o.width, o.height);
+  return o;
+}
+const cleanText = s => s.replace(/[\n\r]+/g, ' ').replace(/[.…_|]{2,}/g, ' ').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N})%]+$/gu, '').replace(/\s{2,}/g, ' ').trim();
+async function readHeader(P, H) {
+  const head = { denom: '', codice: '', motivo: '' }, conf = {};
+  let w;
+  try { w = await getOCR(); } catch (e) { console.error(e); return { head, conf }; }
+  for (const k of Object.keys(HFIELDS)) {
+    await w.setParameters({ tessedit_char_whitelist: k === 'codice' ? '0123456789' : '' });
+    const { data } = await w.recognize(printCanvas(P, H, HFIELDS[k]));
+    let v = cleanText(data.text);
+    if (k === 'codice') { const m = v.replace(/\D/g, '').match(/\d{9}/); v = m ? m[0] : v.replace(/\D/g, ''); }
+    head[k] = v; conf[k] = data.confidence / 100;
+  }
+  return { head, conf };
+}
+
+// legge un foglio: restituisce l'intestazione e le righe (una per HU)
 async function readSheet(file) {
   const M = await loadModel();
   const P = toPixels(await loadImage(file));
@@ -515,68 +570,117 @@ async function readSheet(file) {
     mem[row.id] = { strip: stripURL(rgba, y0, y1, 20, 740), noteStrip: stripURL(rgba, y0, y1, 960, 1232), cells };
     rows.push(row);
   }
-  return rows;
+  return { rows, ...(await readHeader(P, H)) };
 }
 
 // ===================== EXCEL =====================
 const XCOLS = [
-  { k: 'data', l: 'Data', date: true },
-  { k: 'hu', l: 'HU', num: true },
-  { k: 'contr', l: 'Q.tà controllata', num: true },
-  { k: 'ril', l: 'Q.tà rilavorata', num: true },
-  { k: 'scart', l: 'Q.tà scartata', num: true },
-  { k: 'note', l: 'Note' },
+  { k: 'denom', l: 'Denominazione materiale', w: 24, wrap: true },
+  { k: 'codice', l: 'Codice', w: 13, num: true },
+  { k: 'motivo', l: 'Motivo', w: 36, wrap: true },
+  { k: 'data', l: 'Data', w: 12, date: true },
+  { k: 'hu', l: 'HU', w: 13, num: true },
+  { k: 'contr', l: 'Q.tà ricontrollata', w: 13, num: true },
+  { k: 'ril', l: 'Q.tà rilavorata', w: 13, num: true },
+  { k: 'scart', l: 'Q.tà scartata', w: 13, num: true },
+  { k: 'note', l: 'Note', w: 36, wrap: true },
 ];
+const RED = 'FFC8102E', PINK = 'FFFDECEE', LINE = 'FFE8B4BC', WHITE = 'FFFFFFFF';
 const normH = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9àèéìòù]/g, '');
 const sheetNameFor = iso => iso ? iso.split('-').reverse().join('-') : 'Senza data';
-const isoToSerial = iso => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
-  return m ? (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 864e5 : null;
-};
-// aggiunge le righe: un foglio di lavoro per giorno, celle vuote se manca il valore
-function appendRows(XLSX, wb, rows) {
-  if (!wb) wb = XLSX.utils.book_new();
+const cellText = v => v == null ? '' : typeof v !== 'object' ? String(v)
+  : v instanceof Date ? v.toISOString() : v.richText ? v.richText.map(t => t.text).join('') : String(v.text ?? v.result ?? '');
+const thin = argb => ({ style: 'thin', color: { argb } });
+const box = argb => ({ top: thin(argb), left: thin(argb), bottom: thin(argb), right: thin(argb) });
+
+// riga di intestazione (cerca "HU" nelle prime righe): { row, col: { chiave: colonna } }
+function findHeader(ws) {
+  for (let r = 1; r <= Math.min(8, ws.rowCount); r++) {
+    const row = ws.getRow(r), col = {};
+    row.eachCell((cell, c) => { const k = XCOLS.find(x => normH(x.l) === normH(cellText(cell.value))); if (k) col[k.k] = c; });
+    if (col.hu) return { row: r, col };
+  }
+  return null;
+}
+function styleHeaderCell(cell, label) {
+  cell.value = label;
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: RED } };
+  cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: WHITE } };
+  cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  cell.border = box(WHITE);
+}
+function newDaySheet(wb, name, iso) {
+  const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 2 }], properties: { tabColor: { argb: RED } } });
+  ws.columns = XCOLS.map(c => ({ width: c.w }));
+  ws.mergeCells(1, 1, 1, XCOLS.length);
+  const t = ws.getCell(1, 1);
+  t.value = 'Ricontrolli · ' + (iso ? iso.split('-').reverse().join('/') : 'senza data');
+  t.font = { name: 'Calibri', bold: true, size: 14, color: { argb: RED } };
+  t.alignment = { vertical: 'middle' };
+  ws.getRow(1).height = 26;
+  XCOLS.forEach((c, i) => styleHeaderCell(ws.getCell(2, i + 1), c.l));
+  ws.getRow(2).height = 32;
+  ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: XCOLS.length } };
+  return ws;
+}
+function lastUsedRow(ws) { let n = 0; ws.eachRow({ includeEmpty: false }, (row, r) => { n = r; }); return n; }
+
+// aggiunge le righe: un foglio di lavoro per giorno, tabella rossa, celle vuote se manca il valore
+function appendRows(wb, rows) {
+  const blank = wb.worksheets.filter(ws => ws.actualRowCount === 0);
   const byDay = new Map();
   rows.forEach(r => { const n = sheetNameFor(r.data); if (!byDay.has(n)) byDay.set(n, []); byDay.get(n).push(r); });
   for (const [name, rs] of byDay) {
-    if (!wb.Sheets[name]) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([XCOLS.map(c => c.l)]), name);
-    const ws = wb.Sheets[name];
-    const header = (XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })[0] || []).map(h => (h == null ? '' : String(h).trim()));
-    const idx = {};
-    for (const c of XCOLS) {
-      let i = header.findIndex(h => normH(h) === normH(c.l));
-      if (i < 0) { header.push(c.l); i = header.length - 1; }
-      idx[c.k] = i;
+    const ws = wb.getWorksheet(name) || newDaySheet(wb, name, rs[0].data);
+    let hd = findHeader(ws);
+    if (!hd) {                                          // foglio esistente senza intestazione
+      const r0 = lastUsedRow(ws) + 1;
+      XCOLS.forEach((c, i) => styleHeaderCell(ws.getCell(r0, i + 1), c.l));
+      hd = findHeader(ws) || { row: r0, col: Object.fromEntries(XCOLS.map((c, i) => [c.k, i + 1])) };
     }
-    XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' });
-    const start = XLSX.utils.decode_range(ws['!ref']).e.r + 1;
-    rs.forEach((r, ri) => {
+    let maxCol = Math.max(...Object.values(hd.col));
+    for (const c of XCOLS) if (!hd.col[c.k]) { hd.col[c.k] = ++maxCol; styleHeaderCell(ws.getCell(hd.row, maxCol), c.l); ws.getColumn(maxCol).width = c.w; }
+    let r = Math.max(lastUsedRow(ws), hd.row) + 1;
+    for (const v of rs) {
+      const band = (r - hd.row) % 2 === 0;
       for (const c of XCOLS) {
-        const v = r[c.k];
-        if (v === undefined || v === null || v === '') continue;
-        const addr = XLSX.utils.encode_cell({ r: start + ri, c: idx[c.k] });
-        if (c.date) { const s = isoToSerial(v); ws[addr] = s == null ? { t: 's', v } : { t: 'n', v: s, z: 'dd/mm/yyyy' }; }
-        else if (c.num && /^\d+$/.test(v)) ws[addr] = { t: 'n', v: +v };
-        else ws[addr] = { t: 's', v: String(v) };
+        const cell = ws.getCell(r, hd.col[c.k]), x = v[c.k];
+        if (x !== undefined && x !== null && x !== '') {
+          if (c.date && /^\d{4}-\d{2}-\d{2}$/.test(x)) { const [y, m, d] = x.split('-').map(Number); cell.value = new Date(Date.UTC(y, m - 1, d)); cell.numFmt = 'dd/mm/yyyy'; }
+          else if (c.num && /^\d+$/.test(x) && x.length < 15) { cell.value = +x; cell.numFmt = '0'; }
+          else cell.value = String(x);
+        }
+        cell.border = box(LINE);
+        cell.font = { name: 'Calibri', size: 11 };
+        cell.alignment = { vertical: 'middle', horizontal: c.num || c.date ? 'center' : 'left', wrapText: !!c.wrap };
+        if (band) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PINK } };
       }
-    });
-    const rg = XLSX.utils.decode_range(ws['!ref']);
-    rg.e.r = Math.max(rg.e.r, start + rs.length - 1); rg.e.c = Math.max(rg.e.c, header.length - 1);
-    ws['!ref'] = XLSX.utils.encode_range(rg);
-    ws['!cols'] = header.map((h, i) => (ws['!cols'] && ws['!cols'][i]) || { wch: Math.max(11, String(h).length + 2) });
+      r++;
+    }
+    ws.autoFilter = { from: { row: hd.row, column: 1 }, to: { row: hd.row, column: maxCol } };
   }
+  // il foglio vuoto iniziale ("Foglio1") non serve più
+  for (const ws of blank) if (wb.worksheets.length > 1 && ws.actualRowCount === 0) wb.removeWorksheet(ws.id);
   return wb;
 }
-function existingHUs(XLSX, wb) {
+function existingHUs(wb) {
   const out = new Set();
   if (!wb) return out;
-  for (const n of wb.SheetNames) {
-    const data = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: null });
-    if (!data.length) continue;
-    const i = data[0].findIndex(h => normH(h) === 'hu');
-    if (i >= 0) data.slice(1).forEach(r => r[i] != null && out.add(String(r[i]).trim()));
+  for (const ws of wb.worksheets) {
+    const hd = findHeader(ws);
+    if (!hd) continue;
+    ws.eachRow({ includeEmpty: false }, (row, r) => {
+      if (r <= hd.row) return;
+      const v = cellText(row.getCell(hd.col.hu).value).trim();
+      if (v) out.add(v);
+    });
   }
   return out;
+}
+async function loadWorkbook(buf) {
+  const wb = new ExcelJS.Workbook();
+  if (buf) await wb.xlsx.load(buf);
+  return wb;
 }
 
 // ===================== CORREZIONI (per riaddestrare) =====================
@@ -617,7 +721,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 let sheets = store.get('ric2_sheets', []);         // [{ id, status, msg, rows: [...] }]
-let report = { wb: null, fileName: null, hus: new Set() };
+let report = { buf: null, fileName: null, hus: new Set() };
 const mem = {};                                    // riga -> { strip, cells } (solo in memoria)
 let queue = Promise.resolve();
 const save = () => store.set('ric2_sheets', sheets);
@@ -632,7 +736,9 @@ function addFiles(list) {
       await new Promise(r => setTimeout(r, 30));     // lascia disegnare la pagina
       const t0 = performance.now();
       try {
-        sh.rows = await readSheet(f);
+        const res = await readSheet(f);
+        sh.rows = res.rows;
+        sh.head = { ...res.head, pred: { ...res.head }, conf: res.conf };
         const s = ((performance.now() - t0) / 1000).toFixed(1);
         sh.status = sh.rows.length ? 'ok' : 'warn';
         sh.msg = sh.rows.length ? `${sh.rows.length} HU letti in ${s}s: controlla i campi colorati.` : 'Nessuna riga trovata: aggiungile a mano.';
@@ -659,6 +765,7 @@ function fieldState(r, k) {
   if (k === 'contr' && !r.contr && r.hu) return 'bad';
   if (r.pred && k in r.pred && r[k] && r[k] === r.pred[k] && r.conf && r.conf[k] != null && r.conf[k] < 0.8) return 'unsure';
   if (k === 'hu' && r.hu && !r.hu.startsWith('190') && r.hu === r.pred?.hu) return 'unsure';
+  if (k === 'codice' && r.codice && !/^\d{9}$/.test(r.codice)) return 'unsure';
   return '';
 }
 
@@ -695,6 +802,14 @@ function renderAll() {
     head.querySelector('b').textContent = `Foglio ${n + 1}` + (sh.rows.length ? ` · ${sh.rows.length} HU` : '');
     const st = head.querySelector('.status'); st.textContent = sh.msg || ''; if (sh.status) st.classList.add(sh.status);
     card.append(head);
+    if (sh.status !== 'err' && sh.msg !== 'In coda…' && sh.msg !== 'Lettura…') {
+      sh.head = sh.head || { denom: '', codice: '', motivo: '', pred: {}, conf: {} };
+      const hb = document.createElement('div'); hb.className = 'sheet-head';
+      const g = document.createElement('div'); g.className = 'grid';
+      g.append(inputEl(sh.head, 'denom', 'Denominazione materiale'), inputEl(sh.head, 'codice', 'Codice', { num: true, cls: 'hu' }));
+      hb.append(g, inputEl(sh.head, 'motivo', 'Motivo', { cls: 'wide' }));
+      card.append(hb);
+    }
 
     sh.rows.forEach(r => {
       const rw = document.createElement('div'); rw.className = 'hu-row';
@@ -702,7 +817,7 @@ function renderAll() {
       const g = document.createElement('div'); g.className = 'grid';
       g.append(inputEl(r, 'data', 'Data', { type: 'date' }), inputEl(r, 'hu', 'HU', { num: true, cls: 'hu' }));
       const g3 = document.createElement('div'); g3.className = 'grid3';
-      g3.append(inputEl(r, 'contr', 'Q.tà contr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }));
+      g3.append(inputEl(r, 'contr', 'Q.tà ricontr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }));
       const note = inputEl(r, 'note', 'Note', { cls: 'wide' });
       if (mem[r.id]?.noteStrip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Note scritte sul foglio'; im.src = mem[r.id].noteStrip; note.querySelector('label').after(im); }
       const foot = document.createElement('div'); foot.className = 'row-foot';
@@ -731,6 +846,8 @@ function renderAll() {
 }
 
 const allRows = () => sheets.flatMap(s => s.rows);
+// righe per Excel: ogni HU porta con sé denominazione, codice e motivo del suo foglio
+const excelRows = () => sheets.flatMap(s => s.rows.map(r => ({ ...r, denom: s.head?.denom || '', codice: s.head?.codice || '', motivo: s.head?.motivo || '' })));
 function updateSave() {
   const n = allRows().length, b = $('#saveBtn');
   b.disabled = !n;
@@ -751,14 +868,14 @@ $('#xlsxInput').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
   try {
-    const wb = XLSX.read(await f.arrayBuffer(), { cellNF: true, cellStyles: true });
-    report = { wb, fileName: f.name, hus: existingHUs(XLSX, wb) };
+    const buf = await f.arrayBuffer();
+    report = { buf, fileName: f.name, hus: existingHUs(await loadWorkbook(buf)) };
     updateReportInfo(); renderAll();
-  } catch (err) { alert('Non riesco a leggere questo file Excel.'); }
+  } catch (err) { console.error(err); alert('Non riesco a leggere questo file Excel.'); }
 });
 $('#newReport').onclick = () => {
   if (report.fileName && !confirm('Chiudere il report aperto e crearne uno nuovo?')) return;
-  report = { wb: null, fileName: null, hus: new Set() };
+  report = { buf: null, fileName: null, hus: new Set() };
   updateReportInfo(); renderAll();
 };
 $('#imgInput').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
@@ -768,10 +885,12 @@ $('#saveBtn').onclick = async () => {
   const bad = rows.filter(r => rowProblems(r).length || !r.hu).length;
   if (bad && !confirm(`${bad} righe hanno problemi (HU mancante, doppio o di lunghezza sbagliata…). Salvo lo stesso?`)) return;
 
-  const base = report.wb ? XLSX.read(XLSX.write(report.wb, { type: 'array', bookType: 'xlsx' }), { cellNF: true }) : null;
-  const wb = appendRows(XLSX, base, rows);
+  let wb, out;
+  try {
+    wb = appendRows(await loadWorkbook(report.buf), excelRows());
+    out = await wb.xlsx.writeBuffer();
+  } catch (err) { console.error(err); alert('Errore nel preparare il file Excel: ' + err.message); return; }
   const name = report.fileName || `Ricontrolli_${today()}.xlsx`;
-  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const file = new File([out], name, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
@@ -792,7 +911,7 @@ $('#saveBtn').onclick = async () => {
     }
   }
   try { if (samples.length) await db.add(samples); } catch (e) { console.error(e); }
-  report = { wb, fileName: name, hus: existingHUs(XLSX, wb) };
+  report = { buf: out, fileName: name, hus: existingHUs(wb) };
   sheets.forEach(s => s.rows.forEach(r => delete mem[r.id]));
   sheets = []; save(); updateReportInfo(); renderAll(); updateTrainInfo();
 };
