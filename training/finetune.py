@@ -1,19 +1,31 @@
 # Riaddestra il modello con le correzioni esportate dall'app (ricontrolli-correzioni-*.json),
 # mescolandole a sequenze sintetiche MNIST per non dimenticare le altre cifre.
 # Uso: python3 finetune.py mnist.npz modello.pt nuovo.pt correzioni1.json [correzioni2.json ...]
-import os, sys, json, base64, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
+import os, re, sys, json, base64, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 sys.argv, args = sys.argv[:2], sys.argv[1:]
 import seqtrain as st                     # generatore sintetico e rete
 mnist, src, dst, files = args[0], args[1], args[2], args[3:]
 CH = '0123456789-'
 
-real = []
+HU_OK = re.compile(r'^190\d{6}$')
+def trusted(s):
+    # corretto a mano: è un'etichetta vera
+    if s['p'] != s['l']: return True
+    if os.environ.get('ONLY_FIXED'): return False
+    # non toccato: lo teniamo solo se è plausibile (un HU valido); gli altri campi non si possono verificare
+    if s['f'] == 'hu': return bool(HU_OK.match(s['l']))
+    return True
+
+real, skipped = [], 0
 for fn in files:
     for s in json.load(open(fn))['samples']:
+        if not trusted(s): skipped += 1; continue
         bits = np.frombuffer(base64.b64decode(s['b']), np.uint8)
         img = np.unpackbits(bits, bitorder='little')[:32 * s['w']].reshape(32, s['w']).astype(np.float32)
         lab = [CH.index(c) + 1 for c in s['l'] if c in CH]
         if lab: real.append((img, lab))
+print('scartati (letture non toccate e non plausibili)', skipped)
+if not real: sys.exit('Nessun campione affidabile: correggi qualche lettura nell\'app prima di esportare.')
 print('campioni reali', len(real), '· corretti a mano', sum(1 for fn in files for s in json.load(open(fn))['samples'] if s['p'] != s['l']))
 
 def pad(imgs):

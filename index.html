@@ -907,6 +907,8 @@ $('#saveBtn').onclick = async () => {
     const cells = mem[r.id]?.cells || {};
     for (const k of ['hu', 'contr', 'ril', 'scart']) {
       if (!cells[k] || !r[k]) continue;
+      // un valore non toccato e segnalato (incerto o sbagliato) è solo un'ipotesi del modello: non usarlo come etichetta
+      if (r[k] === r.pred[k] && fieldState(r, k)) continue;
       samples.push({ f: k, w: cells[k].W, b: packBits(cells[k].img), p: r.pred[k] ?? '', l: r[k], v: MODEL_VERSION, t: Date.now() });
     }
   }
