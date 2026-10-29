@@ -48,6 +48,7 @@
   .field .strip { margin: 2px 0 4px; }
   .sheet-head { padding: 10px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--red) 6%, var(--card)); }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .field.wide { margin-top: 8px; }
   .field label { font-size: 12px; color: var(--muted); }
@@ -68,6 +69,30 @@
   .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   .legend .l-unsure::before { background: var(--warn-soft); border: 1px solid var(--warn); }
   .legend .l-bad::before { background: var(--red-soft); border: 1px solid var(--red); }
+  /* tabella Excel */
+  #viewer { width: 100%; max-width: 1100px; height: 100%; max-height: 100dvh; margin: auto; padding: 0; border: none;
+            background: var(--card); color: var(--text); display: none; flex-direction: column; }
+  #viewer[open] { display: flex; }
+  @media (min-width: 800px) { #viewer { height: 90vh; border-radius: 14px; border: 1px solid var(--line); } }
+  #viewer::backdrop { background: rgba(0, 0, 0, .45); }
+  .v-head { display: flex; gap: 10px; align-items: center; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; border-bottom: 1px solid var(--line); }
+  .v-head .title { flex: 1; min-width: 0; } .v-head .title b { display: block; }
+  .v-head .status { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v-bar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .v-bar label { font-size: 13px; color: var(--muted); }
+  .v-bar select { font-size: 16px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+  .v-table { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .v-table table { border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 100%; }
+  .v-table th { position: sticky; top: 0; z-index: 1; background: var(--red); color: #fff; font-weight: 600; text-align: left; padding: 8px; white-space: nowrap; }
+  .v-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .v-table td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .v-table tbody tr { cursor: pointer; }
+  .v-table tbody tr.sel td { background: var(--red-soft); }
+  .v-table th:first-child, .v-table td:first-child { width: 36px; text-align: center; padding: 7px 4px 7px 12px; }
+  .v-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--red); }
+  .v-empty { padding: 30px 16px; text-align: center; color: var(--muted); }
+  .v-foot { padding: 10px 16px calc(env(safe-area-inset-bottom) + 10px); border-top: 1px solid var(--line); }
+  .v-check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); margin-top: 8px; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
@@ -80,19 +105,22 @@
 
 <main>
   <section class="panel">
-    <h2>1 · Report Excel</h2>
-    <div id="reportInfo">Nessun report aperto: verrà creato un file nuovo.</div>
+    <h2>1 · File Excel</h2>
+    <div id="reportInfo">Nessun file aperto: al primo salvataggio ne creo uno nuovo.</div>
     <div class="row">
-      <label class="btn" for="xlsxInput">📂 Apri report esistente</label>
-      <button class="btn" id="newReport">Nuovo report</button>
+      <label class="btn" for="xlsxInput">📂 Apri file Excel</label>
+      <button class="btn" id="viewBtn" disabled>👁 Vedi tabella</button>
+      <button class="btn" id="resetBtn">↺ Reset</button>
     </div>
     <input type="file" id="xlsxInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-    <p class="tip">Apri il file condiviso dalla cartella OneDrive nell'app File. Ogni giorno ha il suo foglio di lavoro; alla fine lo risalvi sopra lo stesso file.</p>
+    <p class="tip">Per <b>continuare</b> il file condiviso: <b>Apri file Excel</b> e sceglilo nella cartella OneDrive. Per <b>ricominciare</b> con un file nuovo: <b>Reset</b>. Ogni giorno del foglio di carta ha il suo foglio di lavoro.</p>
   </section>
 
   <section class="panel">
     <h2>2 · Fogli da registrare</h2>
-    <label class="btn primary big" for="imgInput">📷 Aggiungi fogli (foto)</label>
+    <label class="btn primary big" for="camInput">📷 Scatta foto</label>
+    <input type="file" id="camInput" accept="image/*" capture="environment">
+    <div class="row" style="justify-content:center;margin-top:8px"><label class="btn small" for="imgInput">🖼 Scegli dalla galleria</label></div>
     <input type="file" id="imgInput" accept="image/*" multiple>
     <div id="status"></div>
     <p class="tip">Fotografa il foglio <b>intero</b> (si deve vedere tutta la cornice rossa), dall'alto, con buona luce. Va bene anche girato.</p>
@@ -112,6 +140,28 @@
   </section>
 </main>
 
+<dialog id="viewer" aria-labelledby="vTitle">
+  <div class="v-head">
+    <div class="title"><b id="vTitle">Tabella Excel</b><span class="status" id="vFile"></span></div>
+    <button class="btn small" id="vClose" aria-label="Chiudi">✕ Chiudi</button>
+  </div>
+  <div class="v-bar">
+    <label for="vDay">Giorno</label>
+    <select id="vDay"></select>
+    <span id="vCount" class="status"></span>
+  </div>
+  <div class="v-table"></div>
+  <div class="v-foot">
+    <div class="row">
+      <button class="btn primary" id="vCopySel" disabled>📋 Copia selezionate</button>
+      <button class="btn" id="vCopyAll">📋 Copia tutto il giorno</button>
+      <button class="btn" id="vDownload">⬇ Scarica Excel</button>
+    </div>
+    <label class="v-check"><input type="checkbox" id="vWithHead"> Copia anche l'intestazione</label>
+    <p class="tip" id="vMsg">Tocca le righe che ti servono, poi copia e incolla in Excel: le colonne restano separate.</p>
+  </div>
+</dialog>
+
 <footer><div class="inner">
   <button class="btn primary big" id="saveBtn" disabled>💾 Salva su Excel</button>
 </div></footer>
@@ -121,7 +171,7 @@
 const MODEL_VERSION = 2;
 const SW = 2000, SH = 1400;                         // foglio raddrizzato (cornice rossa = bordi)
 const REG = { x: 0, y: 560, w: 1240, h: 600 };      // zona della tabella "Nacharbeit"
-const COLS = { data: [30, 134], hu: [220, 384], contr: [384, 500], ril: [500, 628], scart: [628, 737] };
+const COLS = { data: [30, 134], hu: [220, 384], contr: [384, 500], ril: [500, 628], scart: [628, 737], oper: [737, 845] };
 const TOP = 634, BOT = 1136, ROWH = 33.6;
 const CH = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-'];
 // [nome, uscite, ingressi, kh, kw, padH, padW]
@@ -549,10 +599,10 @@ async function readSheet(file) {
   if (fr.cut) throw new Error('Il foglio è tagliato: deve vedersi tutta la cornice rossa.');
   const H = orient(P, fr.q);
   const rgba = warp(P, H, REG), ink = inkMask(rgba, REG.w, REG.h);
-  const rows = [];
-  let lastDate = '';
-  for (const [y0, y1] of findBands(ink)) {
-    const row = { id: uid(), data: '', hu: '', contr: '', ril: '', scart: '', note: '', pred: {}, conf: {} };
+  const rows = [], bands = findBands(ink);
+  let lastDate = '', lastOp = null;
+  bands.forEach(([y0, y1], bi) => {
+    const row = newRow();
     const cells = {};
     for (const k of Object.keys(COLS)) {
       const ci = cellImage(ink, y0, y1, ...COLS[k]);
@@ -563,26 +613,38 @@ async function readSheet(file) {
       if (k === 'data') row.data = parseDate(r.s);
       else { row[k] = r.s.replace(/\D/g, ''); row.conf[k] = r.conf; }
     }
-    if (!row.data) row.data = lastDate;           // "u" / virgolette = come sopra
+    if (row.hu.length < 5) return;                // niente HU: è il bordo della tabella o una riga di note
+    if (!row.data) { row.data = lastDate; row.same.data = !!lastDate; }   // "u" / virgolette / vuoto = come sopra
     else lastDate = row.data;
-    if (!lastDate) { row.pred.data = row.data = today(); row.conf.data = 0; }   // data non letta: da controllare
-    for (const k of ['hu', 'contr', 'ril', 'scart']) row.pred[k] = row[k];
-    mem[row.id] = { strip: stripURL(rgba, y0, y1, 20, 740), noteStrip: stripURL(rgba, y0, y1, 960, 1232), cells };
+    if (!lastDate) { row.pred.data = row.data = lastDate = today(); row.conf.data = 0; }   // data non letta: da controllare (le righe sotto la seguono)
+    // operatore: un numero di 3-5 cifre; "u", virgolette o vuoto = come sopra
+    if (/^\d{3,5}$/.test(row.oper)) lastOp = { v: row.oper, conf: row.conf.oper };
+    else {
+      delete cells.oper;                            // non è una cifra scritta: non va tra i dati di addestramento
+      row.oper = lastOp ? lastOp.v : '';
+      row.same.oper = !!lastOp;
+      if (lastOp) row.conf.oper = lastOp.conf; else delete row.conf.oper;
+    }
+    for (const k of ['hu', 'contr', 'ril', 'scart', 'oper']) row.pred[k] = row[k];
+    // le note possono continuare sulla riga sotto: la striscia arriva fino al prossimo HU
+    const noteEnd = Math.min(bands[bi + 1] ? bands[bi + 1][0] : BOT, y1 + Math.round(ROWH * 1.2));
+    mem[row.id] = { strip: stripURL(rgba, y0, y1, 20, 850), noteStrip: stripURL(rgba, y0, Math.max(y1, noteEnd), 960, 1232), cells };
     rows.push(row);
-  }
+  });
   return { rows, ...(await readHeader(P, H)) };
 }
 
 // ===================== EXCEL =====================
 const XCOLS = [
-  { k: 'denom', l: 'Denominazione materiale', w: 24, wrap: true },
-  { k: 'codice', l: 'Codice', w: 13, num: true },
-  { k: 'motivo', l: 'Motivo', w: 36, wrap: true },
   { k: 'data', l: 'Data', w: 12, date: true },
+  { k: 'codice', l: 'Codice', w: 13, num: true },
+  { k: 'denom', l: 'Denominazione materiale', w: 24, wrap: true },
+  { k: 'motivo', l: 'Motivo', w: 36, wrap: true },
   { k: 'hu', l: 'HU', w: 13, num: true },
   { k: 'contr', l: 'Q.tà ricontrollata', w: 13, num: true },
   { k: 'ril', l: 'Q.tà rilavorata', w: 13, num: true },
   { k: 'scart', l: 'Q.tà scartata', w: 13, num: true },
+  { k: 'oper', l: 'Operatore', w: 12, num: true },
   { k: 'note', l: 'Note', w: 36, wrap: true },
 ];
 const RED = 'FFC8102E', PINK = 'FFFDECEE', LINE = 'FFE8B4BC', WHITE = 'FFFFFFFF';
@@ -687,14 +749,18 @@ async function loadWorkbook(buf) {
 const db = (() => {
   let p;
   const open = () => p || (p = new Promise((res, rej) => {
-    const r = indexedDB.open('ricontrolli', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('samples', { autoIncrement: true });
+    const r = indexedDB.open('ricontrolli', 2);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('samples')) d.createObjectStore('samples', { autoIncrement: true });
+      if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');     // ultimo file Excel aperto/salvato
+    };
     r.onsuccess = () => res(r.result); r.onerror = () => { p = null; rej(r.error); };
   }));
-  const tx = async (mode, fn) => {
+  const tx = async (mode, fn, store = 'samples') => {
     const d = await open();
     return new Promise((res, rej) => {
-      const t = d.transaction('samples', mode), r = fn(t.objectStore('samples'));
+      const t = d.transaction(store, mode), r = fn(t.objectStore(store));
       t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
     });
   };
@@ -703,6 +769,9 @@ const db = (() => {
     count: () => tx('readonly', s => s.count()),
     all: () => tx('readonly', s => s.getAll()),
     clear: () => tx('readwrite', s => s.clear()),
+    get: k => tx('readonly', s => s.get(k), 'kv'),
+    put: (k, v) => tx('readwrite', s => s.put(v, k), 'kv'),
+    del: k => tx('readwrite', s => s.delete(k), 'kv'),
   };
 })();
 function packBits(img) {
@@ -721,8 +790,24 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 let sheets = store.get('ric2_sheets', []);         // [{ id, status, msg, rows: [...] }]
-let report = { buf: null, fileName: null, hus: new Set() };
+let report = { buf: null, fileName: null, hus: new Set(), at: null };
 const mem = {};                                    // riga -> { strip, cells } (solo in memoria)
+// riga vuota; same = campi copiati dalla riga sopra ("u" / virgolette), che seguono le correzioni fatte sopra
+const newRow = (o = {}) => ({ id: uid(), data: '', hu: '', contr: '', ril: '', scart: '', oper: '', note: '', pred: {}, conf: {}, same: {}, ...o });
+// il file Excel resta salvato nel telefono finché non premi Reset (Safari può ricaricare la pagina)
+async function setReport(buf, fileName, wb) {
+  report = { buf, fileName, hus: existingHUs(wb || (buf ? await loadWorkbook(buf) : null)), at: buf ? Date.now() : null };
+  try { if (buf) await db.put('report', { buf, fileName, at: report.at }); else await db.del('report'); } catch (e) { console.error(e); }
+  updateReportInfo(); renderAll();
+}
+async function restoreReport() {
+  try {
+    const r = await db.get('report');
+    if (!r || !r.buf) return;
+    report = { buf: r.buf, fileName: r.fileName, hus: existingHUs(await loadWorkbook(r.buf)), at: r.at };
+    updateReportInfo(); renderAll();
+  } catch (e) { console.error(e); }
+}
 let queue = Promise.resolve();
 const save = () => store.set('ric2_sheets', sheets);
 const setStatus = s => { $('#status').textContent = s; };
@@ -778,10 +863,14 @@ function inputEl(r, k, label, opts = {}) {
   if (opts.num) { inp.inputMode = 'numeric'; inp.pattern = '[0-9]*'; }
   inp.autocomplete = 'off';
   inp.value = r[k] || '';
+  if (r.id) { inp.dataset.row = r.id; inp.dataset.k = k; }
   const mark = () => { const st = fieldState(r, k); wrap.classList.toggle('unsure', st === 'unsure'); wrap.classList.toggle('bad', st === 'bad'); };
+  inp._mark = mark;
   inp.addEventListener('input', () => {
     r[k] = opts.num ? inp.value.replace(/\D/g, '') : inp.value;
     if (opts.num && inp.value !== r[k]) inp.value = r[k];
+    if (r.same?.[k]) r.same[k] = false;            // corretto a mano: non segue più la riga sopra
+    opts.onInput?.();
     mark(); save(); updateSave();
     const msg = wrap.closest('.hu-row')?.querySelector('.row-msg');
     if (msg) msg.textContent = rowProblems(r).join(' · ');
@@ -789,6 +878,15 @@ function inputEl(r, k, label, opts = {}) {
   mark();
   wrap.append(lab, inp);
   return wrap;
+}
+
+// "u" / come sopra: le righe sotto che copiavano questo campo seguono la correzione
+function followDown(sh, r, k) {
+  for (let j = sh.rows.indexOf(r) + 1; j < sh.rows.length && sh.rows[j].same?.[k]; j++) {
+    const o = sh.rows[j]; o[k] = r[k];
+    const el = document.querySelector(`input[data-row="${o.id}"][data-k="${k}"]`);
+    if (el) { el.value = o[k]; el._mark?.(); }
+  }
 }
 
 function renderAll() {
@@ -815,9 +913,10 @@ function renderAll() {
       const rw = document.createElement('div'); rw.className = 'hu-row';
       if (mem[r.id]?.strip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Riga del foglio'; im.src = mem[r.id].strip; rw.append(im); }
       const g = document.createElement('div'); g.className = 'grid';
-      g.append(inputEl(r, 'data', 'Data', { type: 'date' }), inputEl(r, 'hu', 'HU', { num: true, cls: 'hu' }));
-      const g3 = document.createElement('div'); g3.className = 'grid3';
-      g3.append(inputEl(r, 'contr', 'Q.tà ricontr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }));
+      g.append(inputEl(r, 'data', 'Data', { type: 'date', onInput: () => followDown(sh, r, 'data') }), inputEl(r, 'hu', 'HU', { num: true, cls: 'hu' }));
+      const g3 = document.createElement('div'); g3.className = 'grid4';
+      g3.append(inputEl(r, 'contr', 'Q.tà ricontr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }),
+        inputEl(r, 'oper', 'Operatore', { num: true, onInput: () => followDown(sh, r, 'oper') }));
       const note = inputEl(r, 'note', 'Note', { cls: 'wide' });
       if (mem[r.id]?.noteStrip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Note scritte sul foglio'; im.src = mem[r.id].noteStrip; note.querySelector('label').after(im); }
       const foot = document.createElement('div'); foot.className = 'row-foot';
@@ -833,7 +932,7 @@ function renderAll() {
     const add = document.createElement('button'); add.className = 'btn small'; add.textContent = '＋ Aggiungi riga';
     add.onclick = () => {
       const last = sh.rows[sh.rows.length - 1];
-      sh.rows.push({ id: uid(), data: last ? last.data : today(), hu: '', contr: '', ril: '', scart: '', note: '', pred: {}, conf: {} });
+      sh.rows.push(newRow({ data: last ? last.data : today(), oper: last ? last.oper || '' : '' }));
       save(); renderAll();
     };
     const del = document.createElement('button'); del.className = 'btn small'; del.textContent = '🗑 Rimuovi foglio';
@@ -847,17 +946,19 @@ function renderAll() {
 
 const allRows = () => sheets.flatMap(s => s.rows);
 // righe per Excel: ogni HU porta con sé denominazione, codice e motivo del suo foglio
-const excelRows = () => sheets.flatMap(s => s.rows.map(r => ({ ...r, denom: s.head?.denom || '', codice: s.head?.codice || '', motivo: s.head?.motivo || '' })));
+const excelRows = () => sheets.flatMap(s => s.rows.map(r => ({ ...r, scart: r.scart || '0', denom: s.head?.denom || '', codice: s.head?.codice || '', motivo: s.head?.motivo || '' })));
 function updateSave() {
   const n = allRows().length, b = $('#saveBtn');
   b.disabled = !n;
   b.textContent = n ? `💾 Salva su Excel (${n} HU)` : '💾 Salva su Excel';
 }
+const fmtWhen = t => { const d = new Date(t); return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' alle ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
 function updateReportInfo() {
   $('#reportInfo').innerHTML = report.fileName
-    ? `Report aperto: <b></b> · ${report.hus.size} HU già presenti`
-    : 'Nessun report aperto: verrà creato un file nuovo.';
+    ? `File: <b></b><br><span class="status">${report.hus.size} HU già presenti${report.at ? ' · aggiornato il ' + fmtWhen(report.at) : ''}</span>`
+    : 'Nessun file aperto: al primo salvataggio ne creo uno nuovo.';
   if (report.fileName) $('#reportInfo b').textContent = report.fileName;
+  $('#viewBtn').disabled = !report.buf;
 }
 async function updateTrainInfo() {
   try { const n = await db.count(); $('#trainInfo').textContent = `${n} campi salvati per l'addestramento · modello v${MODEL_VERSION}`; }
@@ -869,16 +970,24 @@ $('#xlsxInput').addEventListener('change', async e => {
   if (!f) return;
   try {
     const buf = await f.arrayBuffer();
-    report = { buf, fileName: f.name, hus: existingHUs(await loadWorkbook(buf)) };
-    updateReportInfo(); renderAll();
+    const wb = await loadWorkbook(buf);
+    await setReport(buf, f.name, wb);
   } catch (err) { console.error(err); alert('Non riesco a leggere questo file Excel.'); }
 });
-$('#newReport').onclick = () => {
-  if (report.fileName && !confirm('Chiudere il report aperto e crearne uno nuovo?')) return;
-  report = { buf: null, fileName: null, hus: new Set() };
-  updateReportInfo(); renderAll();
+$('#resetBtn').onclick = async () => {
+  const n = allRows().length;
+  if (!report.fileName && !sheets.length) { alert('Niente da azzerare: nessun file aperto e nessun foglio in coda.'); return; }
+  const msg = 'Reset: chiudo il file Excel' + (report.fileName ? ` "${report.fileName}"` : '') +
+    (sheets.length ? ` e tolgo dalla coda ${sheets.length === 1 ? 'il foglio' : `i ${sheets.length} fogli`}${n ? ` (${n} HU non ancora salvati)` : ''}` : '') +
+    '.\nIl prossimo salvataggio crea un file nuovo. Continuo?';
+  if (!confirm(msg)) return;
+  sheets.forEach(s => s.rows.forEach(r => delete mem[r.id]));
+  sheets = []; save();
+  await setReport(null, null);
+  setStatus('');
 };
 $('#imgInput').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+$('#camInput').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
 
 $('#saveBtn').onclick = async () => {
   const rows = allRows();
@@ -905,7 +1014,7 @@ $('#saveBtn').onclick = async () => {
   const samples = [];
   for (const r of rows) {
     const cells = mem[r.id]?.cells || {};
-    for (const k of ['hu', 'contr', 'ril', 'scart']) {
+    for (const k of ['hu', 'contr', 'ril', 'scart', 'oper']) {
       if (!cells[k] || !r[k]) continue;
       // un valore non toccato e segnalato (incerto o sbagliato) è solo un'ipotesi del modello: non usarlo come etichetta
       if (r[k] === r.pred[k] && fieldState(r, k)) continue;
@@ -913,9 +1022,9 @@ $('#saveBtn').onclick = async () => {
     }
   }
   try { if (samples.length) await db.add(samples); } catch (e) { console.error(e); }
-  report = { buf: out, fileName: name, hus: existingHUs(wb) };
   sheets.forEach(s => s.rows.forEach(r => delete mem[r.id]));
-  sheets = []; save(); updateReportInfo(); renderAll(); updateTrainInfo();
+  sheets = []; save();
+  await setReport(out, name, wb); updateTrainInfo();
 };
 
 $('#exportTrain').onclick = async () => {
@@ -937,9 +1046,109 @@ $('#clearTrain').onclick = async () => {
   updateTrainInfo();
 };
 
+// ===================== TABELLA EXCEL NEL SITO =====================
+// legge ogni foglio di lavoro con intestazione: { name, iso, head: [...], rows: [[...]], num: [bool] }
+function workbookTables(wb) {
+  const out = [];
+  for (const ws of wb.worksheets) {
+    const hd = findHeader(ws);
+    if (!hd) continue;
+    const cols = [];
+    ws.getRow(hd.row).eachCell((cell, c) => { const t = cellText(cell.value).trim(); if (t) cols.push({ c, t }); });
+    const show = v => v instanceof Date ? v.toLocaleDateString('it-IT', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })
+      : cellText(v).replace(/[\t\r\n]+/g, ' ').trim();
+    const rows = [];
+    ws.eachRow({ includeEmpty: false }, (row, r) => {
+      if (r <= hd.row) return;
+      const vals = cols.map(({ c }) => show(row.getCell(c).value));
+      if (vals.some(Boolean)) rows.push(vals);
+    });
+    const m = ws.name.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    out.push({ name: ws.name, iso: m ? `${m[3]}-${m[2]}-${m[1]}` : '', head: cols.map(x => x.t), rows,
+      num: cols.map(x => !!XCOLS.find(k => normH(k.l) === normH(x.t))?.num) });
+  }
+  return out.sort((a, b) => (b.iso || '').localeCompare(a.iso || ''));   // giorno più recente per primo
+}
+const viewer = { tables: [], t: null, sel: new Set() };
+function viewerButtons() {
+  const T = viewer.t, n = viewer.sel.size;
+  $('#vCount').textContent = T ? `${T.rows.length} HU` + (n ? ` · ${n} selezionate` : '') : '';
+  $('#vCopySel').disabled = !n;
+  $('#vCopySel').textContent = n ? `📋 Copia selezionate (${n})` : '📋 Copia selezionate';
+  $('#vCopyAll').disabled = !T || !T.rows.length;
+  const all = $('#vAll'); if (all) all.checked = !!T && T.rows.length > 0 && n === T.rows.length;
+}
+function renderViewer() {
+  const T = viewer.t, box = $('.v-table');
+  box.innerHTML = '';
+  if (!T || !T.rows.length) { box.innerHTML = '<div class="v-empty">Il file non ha ancora righe di ricontrolli.</div>'; viewerButtons(); return; }
+  const table = document.createElement('table'), thead = document.createElement('thead'), hr = document.createElement('tr');
+  const all = document.createElement('input'); all.type = 'checkbox'; all.id = 'vAll'; all.setAttribute('aria-label', 'Seleziona tutte');
+  const th0 = document.createElement('th'); th0.append(all); hr.append(th0);
+  T.head.forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.append(th); });
+  thead.append(hr);
+  const tbody = document.createElement('tbody'), trs = [];
+  const setSel = (i, on) => { on ? viewer.sel.add(i) : viewer.sel.delete(i); trs[i].classList.toggle('sel', on); trs[i].firstChild.firstChild.checked = on; };
+  T.rows.forEach((vals, i) => {
+    const tr = document.createElement('tr');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.tabIndex = -1; cb.setAttribute('aria-label', 'Seleziona riga');
+    const td0 = document.createElement('td'); td0.append(cb); tr.append(td0);
+    vals.forEach((v, j) => { const td = document.createElement('td'); td.textContent = v; td.title = v; if (T.num[j]) td.className = 'num'; tr.append(td); });
+    tr.onclick = e => { e.preventDefault(); setSel(i, !viewer.sel.has(i)); viewerButtons(); };
+    trs.push(tr); tbody.append(tr);
+  });
+  all.onchange = () => { T.rows.forEach((_, i) => setSel(i, all.checked)); viewerButtons(); };
+  table.append(thead, tbody); box.append(table);
+  viewerButtons();
+}
+function pickDay(name) {
+  viewer.t = viewer.tables.find(t => t.name === name) || viewer.tables[0] || null;
+  viewer.sel = new Set();
+  renderViewer();
+}
+$('#viewBtn').onclick = async () => {
+  if (!report.buf) return;
+  try { viewer.tables = workbookTables(await loadWorkbook(report.buf)); }
+  catch (e) { console.error(e); alert('Non riesco a leggere il file Excel.'); return; }
+  $('#vFile').textContent = report.fileName + (report.at ? ' · ' + fmtWhen(report.at) : '');
+  const sel = $('#vDay'); sel.innerHTML = '';
+  viewer.tables.forEach(t => { const o = document.createElement('option'); o.value = t.name; o.textContent = `${t.name.replace(/-/g, '/')} (${t.rows.length})`; sel.append(o); });
+  sel.disabled = viewer.tables.length < 2;
+  $('#vMsg').textContent = 'Tocca le righe che ti servono, poi copia e incolla in Excel: le colonne restano separate.';
+  pickDay(viewer.tables[0]?.name);
+  $('#viewer').showModal();
+};
+$('#vDay').onchange = e => pickDay(e.target.value);
+$('#vClose').onclick = () => $('#viewer').close();
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  $('#viewer').append(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false; try { ok = document.execCommand('copy'); } catch {}
+  ta.remove(); return ok;
+}
+async function copyRows(idx) {
+  const T = viewer.t; if (!T || !idx.length) return;
+  const lines = idx.map(i => T.rows[i].join('\t'));
+  if ($('#vWithHead').checked) lines.unshift(T.head.join('\t'));
+  const ok = await copyText(lines.join('\r\n'));
+  $('#vMsg').textContent = ok ? `✅ Copiate ${idx.length} righe: ora incollale in Excel (Ctrl+V).` : 'Copia non riuscita: usa "Scarica Excel".';
+}
+$('#vCopySel').onclick = () => copyRows([...viewer.sel].sort((a, b) => a - b));
+$('#vCopyAll').onclick = () => copyRows(viewer.t ? viewer.t.rows.map((_, i) => i) : []);
+$('#vDownload').onclick = async () => {
+  if (!report.buf) return;
+  const file = new File([report.buf], report.fileName || `Ricontrolli_${today()}.xlsx`, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); }
+  } catch (e) { if (e.name !== 'AbortError') alert('Download non riuscito: ' + e.message); }
+};
+
 renderAll();
 updateReportInfo();
 updateTrainInfo();
+restoreReport();
 if (allRows().length) setStatus(`Ripristinati ${allRows().length} HU non ancora salvati (senza immagini).`);
 loadModel().catch(() => setStatus('Modello non caricato: serve internet la prima volta.'));
 </script>
