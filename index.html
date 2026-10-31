@@ -76,6 +76,7 @@
   .capture .btn.big { width: auto; }
   #status { font-size: 14px; color: var(--muted); margin-top: 10px; min-height: 1em; }
   #status:empty { display: none; }
+  .tip:empty { display: none; }
   .tip { font-size: 14px; color: var(--muted); margin: 12px 0 0; max-width: 62ch; }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 10px; }
   .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
@@ -159,7 +160,6 @@
 <body>
 <header class="app-head"><div class="inner">
   <h1>Ricontrolli</h1>
-  <p>Registrazione dei fogli Gesperrt-Bloccato in Excel, una riga per HU</p>
 </div></header>
 
 <main>
@@ -172,7 +172,6 @@
       <button class="btn quiet danger" id="resetBtn">Reset</button>
     </div>
     <input type="file" id="xlsxInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-    <p class="tip">Per continuare il file condiviso, aprilo dalla cartella OneDrive. Per iniziare un file nuovo, usa Reset. Ogni data scritta sul foglio ha il suo foglio di lavoro.</p>
   </section>
 
   <section class="panel" aria-labelledby="hSheets">
@@ -184,11 +183,10 @@
     <input type="file" id="camInput" accept="image/*" capture="environment">
     <input type="file" id="imgInput" accept="image/*" multiple>
     <div id="status" role="status"></div>
-    <p class="tip">Fotografa il foglio intero, con tutta la cornice rossa visibile, dall'alto e con buona luce. Può anche essere girato.</p>
     <div class="legend"><span class="l-unsure">Lettura incerta</span><span class="l-bad">Da correggere</span></div>
   </section>
 
-  <div id="cards"><div class="empty-state">Nessun foglio in coda. Scatta la foto del primo foglio.</div></div>
+  <div id="cards"><div class="empty-state">Nessun foglio in coda.</div></div>
 
   <section class="panel quiet" aria-labelledby="hTrain">
     <div class="panel-head"><h2 id="hTrain">Migliora la lettura</h2></div>
@@ -197,7 +195,6 @@
       <button class="btn" id="exportTrain">Esporta correzioni</button>
       <button class="btn quiet danger" id="clearTrain">Svuota</button>
     </div>
-    <p class="tip">A ogni salvataggio l'app conserva le cifre lette e i valori corretti. Il file esportato serve a riaddestrare il modello sulla calligrafia dei fogli.</p>
   </section>
 </main>
 
@@ -219,7 +216,7 @@
       <button class="btn" id="vDownload">Scarica Excel</button>
     </div>
     <label class="v-check"><input type="checkbox" id="vWithHead"> Copia anche l'intestazione</label>
-    <p class="tip" id="vMsg">Tocca le righe che ti servono, poi copia e incolla in Excel: le colonne restano separate.</p>
+    <p class="tip" id="vMsg" role="status"></p>
   </div>
 </dialog>
 
@@ -1017,7 +1014,7 @@ function followDown(sh, r, k) {
 function renderAll() {
   const box = $('#cards');
   box.innerHTML = '';
-  if (!sheets.length) { box.innerHTML = '<div class="empty-state">Nessun foglio in coda. Scatta la foto del primo foglio.</div>'; updateSave(); return; }
+  if (!sheets.length) { box.innerHTML = '<div class="empty-state">Nessun foglio in coda.</div>'; updateSave(); return; }
   sheets.forEach((sh, n) => {
     const card = document.createElement('div'); card.className = 'card';
     const head = document.createElement('div'); head.className = 'card-head';
@@ -1250,7 +1247,7 @@ $('#viewBtn').onclick = async () => {
   const sel = $('#vDay'); sel.innerHTML = '';
   viewer.tables.forEach(t => { const o = document.createElement('option'); o.value = t.name; o.textContent = `${t.name.replace(/-/g, '/')} (${t.rows.length})`; sel.append(o); });
   sel.disabled = viewer.tables.length < 2;
-  $('#vMsg').textContent = 'Tocca le righe che ti servono, poi copiale e incollale in Excel: le colonne restano separate.';
+  $('#vMsg').textContent = '';
   $('#vMsg').classList.remove('done');
   pickDay(viewer.tables[0]?.name);
   $('#viewer').showModal();
