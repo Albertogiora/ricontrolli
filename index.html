@@ -96,7 +96,7 @@
   .hu-row:last-of-type { border-bottom: none; }
   .strip { display: block; width: 100%; border-radius: 4px; margin-bottom: 10px; background: #fff; border: 1px solid var(--line); }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .field.wide { margin-top: 8px; }
   .field .strip { margin: 2px 0 4px; }
@@ -108,6 +108,10 @@
   .field.hu input { font-weight: 600; letter-spacing: .03em; }
   .field.unsure input { border-color: var(--warn); background: var(--warn-soft); }
   .field.bad input { border-color: var(--red); background: var(--red-soft); }
+  .alts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 13px; color: var(--muted); }
+  .chip { font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: .03em; padding: 5px 9px; min-height: 32px;
+          border: 1px solid var(--line-strong); border-radius: 6px; background: var(--card); color: var(--text); cursor: pointer; }
+  .chip:hover { background: var(--sunken); }
   .row-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
   .row-msg { font-size: 13px; color: var(--red); font-weight: 500; }
   .card-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); justify-content: space-between; }
@@ -147,7 +151,7 @@
   .v-check input { width: 18px; height: 18px; accent-color: var(--red); margin: 0; }
   #vMsg.done { color: var(--ok); }
 
-  @media (max-width: 380px) { .grid4 { grid-template-columns: 1fr 1fr; } .capture { grid-template-columns: 1fr; } }
+  @media (max-width: 380px) { .capture { grid-template-columns: 1fr; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
@@ -225,10 +229,11 @@
 
 <script>
 // ===================== LETTURA DEL FOGLIO =====================
-const MODEL_VERSION = 2;
+const MODEL_VERSION = 3;
 const SW = 2000, SH = 1400;                         // foglio raddrizzato (cornice rossa = bordi)
 const REG = { x: 0, y: 560, w: 1240, h: 600 };      // zona della tabella "Nacharbeit"
-const COLS = { data: [30, 134], hu: [220, 384], contr: [384, 500], ril: [500, 628], scart: [628, 737], oper: [737, 845] };
+const COLS = { data: [30, 134], hu: [220, 384], contr: [384, 500], ril: [500, 628], scart: [628, 737] };
+const CROP = { hu: [198, 394] };                    // l'HU spesso sborda: il primo "1" è sulla riga della colonna
 const TOP = 634, BOT = 1136, ROWH = 33.6;
 const CH = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-'];
 // [nome, uscite, ingressi, kh, kw, padH, padW]
@@ -314,8 +319,8 @@ function greedy(P) {
   }
   return { s, conf };
 }
-// ricerca a fascio CTC: le letture più probabili (solo cifre)
-function beam(P, BW = 40) {
+// ricerca a fascio CTC: le letture più probabili (solo cifre); allow(prefisso, cifra) limita le stringhe possibili
+function beam(P, BW = 40, allow = null) {
   let B = new Map([['', [1, 0]]]);
   for (const p of P) {
     const N = new Map();
@@ -325,21 +330,87 @@ function beam(P, BW = 40) {
       const last = pre[pre.length - 1];
       for (let k = 1; k <= 10; k++) {
         const c = CH[k];
-        if (c === last) { add(pre + c, 0, pb * p[k]); add(pre, 0, pnb * p[k]); }
-        else add(pre + c, 0, (pb + pnb) * p[k]);
+        if (c === last) { add(pre, 0, pnb * p[k]); if (!allow || allow(pre, c)) add(pre + c, 0, pb * p[k]); }
+        else if (!allow || allow(pre, c)) add(pre + c, 0, (pb + pnb) * p[k]);
       }
     }
+    // normalizza per non scendere a zero sulle celle lunghe
+    let z = 0; for (const v of N.values()) z += v[0] + v[1];
+    if (z > 0) for (const v of N.values()) { v[0] /= z; v[1] /= z; }
     B = new Map([...N].sort((a, b) => (b[1][0] + b[1][1]) - (a[1][0] + a[1][1])).slice(0, BW));
   }
   const tot = [...B.values()].reduce((s, v) => s + v[0] + v[1], 0) || 1;
   return [...B].map(([k, v]) => ({ s: k, p: (v[0] + v[1]) / tot }));
 }
-function readHU(P) {
-  const c = beam(P);
-  const hit = c.find(x => x.s.length === 9 && x.s.startsWith('190')) || c.find(x => x.s.length === 9) || c[0];
-  return { s: hit.s, conf: hit.p };
+// log-probabilità che la cella dica esattamente s (algoritmo forward della CTC)
+function ctcLogP(P, s) {
+  const L = [0]; for (const c of s) L.push(CH.indexOf(c), 0);
+  const S = L.length, T = P.length;
+  if (!T || L.includes(-1)) return -Infinity;
+  let a = new Float64Array(S), lp = 0;
+  a[0] = P[0][0]; if (S > 1) a[1] = P[0][L[1]];
+  for (let t = 0; ; t++) {
+    let z = 0; for (let i = 0; i < S; i++) z += a[i];
+    if (!(z > 0)) return -Infinity;
+    lp += Math.log(z); for (let i = 0; i < S; i++) a[i] /= z;
+    if (t === T - 1) break;
+    const b = new Float64Array(S), p = P[t + 1];
+    for (let i = 0; i < S; i++) {
+      let v = a[i] + (i > 0 ? a[i - 1] : 0);
+      if (i > 1 && L[i] !== 0 && L[i] !== L[i - 2]) v += a[i - 2];
+      b[i] = v * p[L[i]];
+    }
+    a = b;
+  }
+  const end = a[S - 1] + (S > 1 ? a[S - 2] : 0);
+  return end > 0 ? lp + Math.log(end) : -Infinity;
 }
-
+// sceglie tra candidati {s, lp}: il migliore e quanto è sicuro rispetto agli altri
+function pickBest(cands) {
+  const seen = new Map();
+  for (const c of cands) if (isFinite(c.lp) && (!seen.has(c.s) || seen.get(c.s).lp < c.lp)) seen.set(c.s, c);
+  const L = [...seen.values()].sort((a, b) => b.lp - a.lp);
+  if (!L.length) return null;
+  const z = L.reduce((s, c) => s + Math.exp(c.lp - L[0].lp), 0);
+  return { ...L[0], conf: 1 / z, alt: L.slice(1, 4).map(c => c.s) };
+}
+// HU: sempre 9 cifre che iniziano con 190. hints = HU già noti dal foglio (es. scritto nel Motivo)
+const HU_RE = /^190\d{6}$/;
+function readHU(P, hints = []) {
+  const c = beam(P, 80, (pre, ch) => pre.length < 9 && (pre.length >= 3 || ch === '190'[pre.length]));
+  const cands = c.filter(x => x.s.length === 9).slice(0, 25).map(x => ({ s: x.s, lp: ctcLogP(P, x.s) }));
+  for (const h of hints) if (HU_RE.test(h)) cands.push({ s: h, lp: ctcLogP(P, h) + Math.log(3) });   // l'HU del Motivo vale un po' di più
+  const best = pickBest(cands);
+  if (best) return { s: best.s, conf: best.conf, alt: best.alt };
+  const free = beam(P)[0] || { s: '', p: 0 };                                     // niente di plausibile: lettura libera
+  return { s: free.s, conf: 0, alt: [] };
+}
+// data: solo date vere degli ultimi due mesi, scritte come 20-10, 20.10.26, 20/10/2026…
+function dateCands(minIso = '', now = new Date()) {
+  const out = [];
+  for (let k = -1; k <= 62; k++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - k);
+    const iso0 = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (minIso && iso0 < minIso) break;
+    const dd = d.getDate(), mm = d.getMonth() + 1, yy = d.getFullYear();
+    const iso = `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    const D = [String(dd), String(dd).padStart(2, '0')], M = [String(mm), String(mm).padStart(2, '0')], Y = ['', String(yy % 100).padStart(2, '0'), String(yy)];
+    const forms = new Set();
+    for (const a of D) for (const b of M) for (const y of Y) for (const sep of ['-', '']) forms.add(a + sep + b + (y ? sep + y : ''));
+    out.push({ iso, forms: [...forms], age: k });
+  }
+  return out;
+}
+function readDate(P, minIso = '') {
+  let cands = dateCands(minIso);
+  if (!cands.length) { cands = dateCands(); minIso = ''; }                                          // data stampata letta male: nessun limite
+  const per = cands.map(({ iso, forms, age }) => {
+    let lp = -Infinity; for (const f of forms) lp = Math.max(lp, ctcLogP(P, f));
+    // a parità, la data più vicina all'apertura del blocco (o, se non letta, la più recente)
+    return { s: iso, lp: lp - (minIso ? (Date.parse(iso) - Date.parse(minIso)) / 864e5 : age) * 0.02 };
+  });
+  return pickBest(per);
+}
 // ---------- geometria ----------
 function loadImage(file) {
   return new Promise((res, rej) => {
@@ -485,14 +556,14 @@ function inkMask(rgba, w, h) {
     const bg = (I[y1 * (w + 1) + x1] - I[y0 * (w + 1) + x1] - I[y1 * (w + 1) + x0] + I[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
     const i = y * w + x, r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), gr = gray[i];
-    const red = r > 1.22 * Math.max(g, b) + 8;
+    const red = r > 1.22 * Math.max(g, b) + 8 && r - b > 0.4 * r;   // rosso del modulo, non penna viola (r ≈ b)
     const dark = gr < bg - 45 && mx - mn < 70;
     const blue = b - r > 20 && b - g > 0 && gr < bg - 20;
     m[i] = (dark || blue) && !red ? 1 : 0;
   }
   const kill = new Uint8Array(n);
   for (let y = 0; y < h; y++) { let x = 0; while (x < w) { if (!m[y * w + x]) { x++; continue; } const s = x; while (x < w && m[y * w + x]) x++; if (x - s >= 45) for (let k = s; k < x; k++) kill[y * w + k] = 1; } }
-  for (let x = 0; x < w; x++) { let y = 0; while (y < h) { if (!m[y * w + x]) { y++; continue; } const s = y; while (y < h && m[y * w + x]) y++; if (y - s >= 28) for (let k = s; k < y; k++) kill[k * w + x] = 1; } }
+  for (let x = 0; x < w; x++) { let y = 0; while (y < h) { if (!m[y * w + x]) { y++; continue; } const s = y; while (y < h && m[y * w + x]) y++; if (y - s >= 45) for (let k = s; k < y; k++) kill[k * w + x] = 1; } }
   for (let i = 0; i < n; i++) if (kill[i]) m[i] = 0;
   return m;
 }
@@ -569,18 +640,6 @@ function cellImage(ink, y0, y1, x0, x1) {
   for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++) img[(y + 2) * W + x + 4] = g[y * dw + x];
   return { img, W };
 }
-function parseDate(s) {
-  let d = s.split(/-+/).filter(Boolean);
-  if (d.length === 1 && (d[0].length === 4 || d[0].length === 6)) d = d[0].match(/../g);
-  if (d.length < 2 || !d.every(x => /^\d+$/.test(x))) return '';
-  const dd = +d[0], mm = +d[1];
-  if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return '';
-  const now = new Date();
-  let yy = d[2] ? 2000 + (+d[2].slice(-2)) : now.getFullYear();
-  if (!d[2] && new Date(yy, mm - 1, dd) - now > 30 * 864e5) yy--;
-  if (Math.abs(yy - now.getFullYear()) > 1) yy = now.getFullYear();
-  return `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
-}
 function stripURL(rgba, y0, y1, x0, x1) {  // immagine a colori di un pezzo di riga, da mostrare sopra i campi
   y0 -= 6; y1 += 6;
   const h = y1 - y0, w = x1 - x0;
@@ -599,6 +658,7 @@ const HFIELDS = {                                    // x0, y0, x1, y1 nel fogli
   denom: [215, 148, 495, 210],
   codice: [930, 136, 1222, 204],
   motivo: [1195, 220, 1992, 290],
+  bdata: [540, 1336, 830, 1390],                   // data stampata in basso (apertura del blocco): il ricontrollo non può essere prima
 };
 let ocrP = null;
 function getOCR() {
@@ -634,14 +694,22 @@ function printCanvas(P, H, [x0, y0, x1, y1], scale = 2) {
 }
 const cleanText = s => s.replace(/[\n\r]+/g, ' ').replace(/[.…_|]{2,}/g, ' ').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N})%]+$/gu, '').replace(/\s{2,}/g, ' ').trim();
 async function readHeader(P, H) {
-  const head = { denom: '', codice: '', motivo: '' }, conf = {};
+  const head = { denom: '', codice: '', motivo: '', bdata: '' }, conf = {};
   let w;
   try { w = await getOCR(); } catch (e) { console.error(e); return { head, conf }; }
   for (const k of Object.keys(HFIELDS)) {
-    await w.setParameters({ tessedit_char_whitelist: k === 'codice' ? '0123456789' : '' });
+    await w.setParameters({ tessedit_char_whitelist: k === 'codice' ? '0123456789' : k === 'bdata' ? '0123456789/.' : '' });
     const { data } = await w.recognize(printCanvas(P, H, HFIELDS[k]));
     let v = cleanText(data.text);
     if (k === 'codice') { const m = v.replace(/\D/g, '').match(/\d{9}/); v = m ? m[0] : v.replace(/\D/g, ''); }
+    if (k === 'bdata') {
+      // "19/10/2026": le barre stampate sono sottili e a volte spariscono ("19102026")
+      const t = data.text.replace(/\s/g, ''), dg = t.replace(/\D/g, '');
+      let m = t.match(/(\d{1,2})[\/.,']+(\d{1,2})[\/.,']+(\d{4})/) || t.match(/(\d{1,2})[\/.,']+(\d{1,2})/);
+      if (!m && dg.length >= 4) m = [, dg.slice(0, 2), dg.slice(2, 4), dg.slice(4, 8)];
+      const y = m && m[3] && m[3].length === 4 ? m[3] : String(new Date().getFullYear());
+      v = m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12 ? `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+    }
     head[k] = v; conf[k] = data.confidence / 100;
   }
   return { head, conf };
@@ -655,40 +723,41 @@ async function readSheet(file) {
   if (!fr) throw new Error('Cornice rossa non trovata: rifai la foto con tutto il foglio.');
   if (fr.cut) throw new Error('Il foglio è tagliato: deve vedersi tutta la cornice rossa.');
   const H = orient(P, fr.q);
+  const header = await readHeader(P, H);
+  const hints = (header.head.motivo.replace(/\s+/g, '').match(/190\d{6}/g) || []);   // "…errata su HU 190399461"
   const rgba = warp(P, H, REG), ink = inkMask(rgba, REG.w, REG.h);
   const rows = [], bands = findBands(ink);
-  let lastDate = '', lastOp = null;
+  let lastDate = '';
   bands.forEach(([y0, y1], bi) => {
     const row = newRow();
     const cells = {};
+    let huInk = '';
     for (const k of Object.keys(COLS)) {
-      const ci = cellImage(ink, y0, y1, ...COLS[k]);
+      const ci = cellImage(ink, y0, y1, ...(CROP[k] || COLS[k]));
       if (!ci) continue;
       const Pr = forward(M, ci.img, ci.W);
-      const r = k === 'hu' ? readHU(Pr) : greedy(Pr);
       cells[k] = ci;
-      if (k === 'data') row.data = parseDate(r.s);
-      else { row[k] = r.s.replace(/\D/g, ''); row.conf[k] = r.conf; }
+      if (k === 'hu') {
+        huInk = greedy(Pr).s.replace(/\D/g, '');
+        const r = readHU(Pr, rows.length ? [] : hints);      // l'HU del Motivo è di solito quello della prima riga
+        row.hu = r.s; row.conf.hu = r.conf; row.alt = r.alt;
+      } else if (k === 'data') {
+        // "u", virgolette o un segno corto = come sopra; altrimenti è una data scritta
+        const g = greedy(Pr).s.replace(/\D/g, '');
+        if (g.length >= 3 || !lastDate) { const d = readDate(Pr, header.head.bdata); if (d) { row.data = d.s; row.conf.data = d.conf; row.pred.data = d.s; } }
+      } else { const r = greedy(Pr); row[k] = r.s.replace(/\D/g, ''); row.conf[k] = r.conf; }
     }
-    if (row.hu.length < 5) return;                // niente HU: è il bordo della tabella o una riga di note
-    if (!row.data) { row.data = lastDate; row.same.data = !!lastDate; }   // "u" / virgolette / vuoto = come sopra
+    if (huInk.length < 5) return;                 // niente HU: è il bordo della tabella o una riga di note
+    if (!row.data) { row.data = lastDate; row.same.data = !!lastDate; }   // come sopra
     else lastDate = row.data;
-    if (!lastDate) { row.pred.data = row.data = lastDate = today(); row.conf.data = 0; }   // data non letta: da controllare (le righe sotto la seguono)
-    // operatore: un numero di 3-5 cifre; "u", virgolette o vuoto = come sopra
-    if (/^\d{3,5}$/.test(row.oper)) lastOp = { v: row.oper, conf: row.conf.oper };
-    else {
-      delete cells.oper;                            // non è una cifra scritta: non va tra i dati di addestramento
-      row.oper = lastOp ? lastOp.v : '';
-      row.same.oper = !!lastOp;
-      if (lastOp) row.conf.oper = lastOp.conf; else delete row.conf.oper;
-    }
-    for (const k of ['hu', 'contr', 'ril', 'scart', 'oper']) row.pred[k] = row[k];
+    if (!lastDate) { row.pred.data = row.data = lastDate = today(); row.conf.data = 0; }   // nessuna data sul foglio: da controllare
+    for (const k of ['hu', 'contr', 'ril', 'scart']) row.pred[k] = row[k];
     // le note possono continuare sulla riga sotto: la striscia arriva fino al prossimo HU
     const noteEnd = Math.min(bands[bi + 1] ? bands[bi + 1][0] : BOT, y1 + Math.round(ROWH * 1.2));
-    mem[row.id] = { strip: stripURL(rgba, y0, y1, 20, 850), noteStrip: stripURL(rgba, y0, Math.max(y1, noteEnd), 960, 1232), cells };
+    mem[row.id] = { strip: stripURL(rgba, y0, y1, 20, 740), noteStrip: stripURL(rgba, y0, Math.max(y1, noteEnd), 960, 1232), cells };
     rows.push(row);
   });
-  return { rows, ...(await readHeader(P, H)) };
+  return { rows, ...header };
 }
 
 // ===================== EXCEL =====================
@@ -701,7 +770,6 @@ const XCOLS = [
   { k: 'contr', l: 'Q.tà ricontrollata', w: 13, num: true },
   { k: 'ril', l: 'Q.tà rilavorata', w: 13, num: true },
   { k: 'scart', l: 'Q.tà scartata', w: 13, num: true },
-  { k: 'oper', l: 'Operatore', w: 12, num: true },
   { k: 'note', l: 'Note', w: 36, wrap: true },
 ];
 const RED = 'FFC8102E', PINK = 'FFFDECEE', LINE = 'FFE8B4BC', WHITE = 'FFFFFFFF';
@@ -850,7 +918,7 @@ let sheets = store.get('ric2_sheets', []);         // [{ id, status, msg, rows: 
 let report = { buf: null, fileName: null, hus: new Set(), at: null };
 const mem = {};                                    // riga -> { strip, cells } (solo in memoria)
 // riga vuota; same = campi copiati dalla riga sopra ("u" / virgolette), che seguono le correzioni fatte sopra
-const newRow = (o = {}) => ({ id: uid(), data: '', hu: '', contr: '', ril: '', scart: '', oper: '', note: '', pred: {}, conf: {}, same: {}, ...o });
+const newRow = (o = {}) => ({ id: uid(), data: '', hu: '', contr: '', ril: '', scart: '', note: '', pred: {}, conf: {}, same: {}, ...o });
 // il file Excel resta salvato nel telefono finché non premi Reset (Safari può ricaricare la pagina)
 async function setReport(buf, fileName, wb) {
   report = { buf, fileName, hus: existingHUs(wb || (buf ? await loadWorkbook(buf) : null)), at: buf ? Date.now() : null };
@@ -972,9 +1040,19 @@ function renderAll() {
       if (mem[r.id]?.strip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Riga del foglio'; im.src = mem[r.id].strip; rw.append(im); }
       const g = document.createElement('div'); g.className = 'grid';
       g.append(inputEl(r, 'data', 'Data', { type: 'date', onInput: () => followDown(sh, r, 'data') }), inputEl(r, 'hu', 'HU', { num: true, cls: 'hu' }));
-      const g3 = document.createElement('div'); g3.className = 'grid4';
-      g3.append(inputEl(r, 'contr', 'Q.tà ricontr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }),
-        inputEl(r, 'oper', 'Operatore', { num: true, onInput: () => followDown(sh, r, 'oper') }));
+      const g3 = document.createElement('div'); g3.className = 'grid3';
+      g3.append(inputEl(r, 'contr', 'Q.tà ricontr.', { num: true }), inputEl(r, 'ril', 'Q.tà rilav.', { num: true }), inputEl(r, 'scart', 'Q.tà scart.', { num: true }));
+      // altre letture possibili dell'HU: un tocco per sceglierne una
+      let alts = null;
+      if (r.alt?.length && r.hu === r.pred?.hu && fieldState(r, 'hu')) {
+        alts = document.createElement('div'); alts.className = 'alts';
+        const t = document.createElement('span'); t.textContent = 'Oppure:'; alts.append(t);
+        r.alt.forEach(a => {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = a;
+          b.onclick = () => { r.hu = a; save(); renderAll(); };
+          alts.append(b);
+        });
+      }
       const note = inputEl(r, 'note', 'Note', { cls: 'wide' });
       if (mem[r.id]?.noteStrip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Note scritte sul foglio'; im.src = mem[r.id].noteStrip; note.querySelector('label').after(im); }
       const foot = document.createElement('div'); foot.className = 'row-foot';
@@ -982,7 +1060,7 @@ function renderAll() {
       const del = document.createElement('button'); del.className = 'btn small quiet danger'; del.textContent = 'Elimina riga';
       del.onclick = () => { if (confirm('Eliminare questa riga?')) { sh.rows = sh.rows.filter(o => o !== r); delete mem[r.id]; save(); renderAll(); } };
       foot.append(msg, del);
-      rw.append(g, g3, note, foot);
+      rw.append(g); if (alts) rw.append(alts); rw.append(g3, note, foot);
       card.append(rw);
     });
 
@@ -990,7 +1068,7 @@ function renderAll() {
     const add = document.createElement('button'); add.className = 'btn small'; add.textContent = 'Aggiungi riga';
     add.onclick = () => {
       const last = sh.rows[sh.rows.length - 1];
-      sh.rows.push(newRow({ data: last ? last.data : today(), oper: last ? last.oper || '' : '' }));
+      sh.rows.push(newRow({ data: last ? last.data : today() }));
       save(); renderAll();
     };
     const del = document.createElement('button'); del.className = 'btn small quiet danger'; del.textContent = 'Rimuovi foglio';
@@ -1072,7 +1150,7 @@ $('#saveBtn').onclick = async () => {
   const samples = [];
   for (const r of rows) {
     const cells = mem[r.id]?.cells || {};
-    for (const k of ['hu', 'contr', 'ril', 'scart', 'oper']) {
+    for (const k of ['hu', 'contr', 'ril', 'scart']) {
       if (!cells[k] || !r[k]) continue;
       // un valore non toccato e segnalato (incerto o sbagliato) è solo un'ipotesi del modello: non usarlo come etichetta
       if (r[k] === r.pred[k] && fieldState(r, k)) continue;
