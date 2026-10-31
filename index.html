@@ -8,142 +8,199 @@
 <meta name="apple-mobile-web-app-title" content="Ricontrolli">
 <meta name="theme-color" content="#c8102e">
 <title>Ricontrolli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --red: #c8102e; --red-soft: #fdecee; --bg: #f4f4f6; --card: #fff;
-    --text: #1c1c1e; --muted: #6b6b73; --line: #dcdce1; --ok: #1f8a4c; --warn: #b26a00; --warn-soft: #fff4e0;
+    --red: #b01c2e; --red-ink: #8f1424; --red-soft: #fbecee;
+    --bg: #eceef1; --card: #ffffff; --sunken: #f6f7f9;
+    --text: #15191e; --muted: #59616b; --line: #d3d8de; --line-strong: #b9c0c8;
+    --ok: #1d7a46; --warn: #9a5b00; --warn-soft: #fff3dc;
+    --focus: #1f5fbf;
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --red-soft: #3a1a1e; --bg: #111113; --card: #1c1c1f; --text: #f2f2f5; --muted: #9a9aa3; --line: #33333a; --warn-soft: #3a2c10; }
+    :root {
+      --red: #d0384a; --red-ink: #f08a96; --red-soft: #3a1c21;
+      --bg: #121417; --card: #1b1e22; --sunken: #23272c;
+      --text: #eef0f3; --muted: #9ba3ad; --line: #30353b; --line-strong: #444b53;
+      --ok: #4cbf7c; --warn: #e3a440; --warn-soft: #36290f; --focus: #7fa8ff;
+      color-scheme: dark;
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-         background: var(--bg); color: var(--text); padding-bottom: 110px; }
-  header { background: var(--red); color: #fff; padding: calc(env(safe-area-inset-top) + 14px) 16px 14px; }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
-  main { padding: 12px 16px; max-width: 760px; margin: 0 auto; }
-  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-  .panel h2 { margin: 0 0 8px; font-size: 15px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .btn { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--text);
-         padding: 11px 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-  .btn.primary { background: var(--red); color: #fff; border-color: var(--red); }
-  .btn.big { width: 100%; justify-content: center; padding: 16px; font-size: 17px; }
-  .btn.small { padding: 7px 10px; font-size: 13px; }
-  .btn:disabled { opacity: .5; }
+  body { margin: 0; font: 16px/1.45 "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--text); padding-bottom: 104px; -webkit-font-smoothing: antialiased; }
+  b, strong { font-weight: 600; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* intestazione: la fascia rossa riprende la cornice del modulo */
+  .app-head { background: var(--card); border-top: 4px solid var(--red); border-bottom: 1px solid var(--line);
+              padding: calc(env(safe-area-inset-top) + 14px) 16px 14px; }
+  .app-head .inner { max-width: 728px; margin: 0 auto; }
+  .app-head h1 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
+  .app-head p { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+
+  main { padding: 16px; max-width: 760px; margin: 0 auto; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+  .panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .panel-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .step { flex: none; width: 24px; height: 24px; border: 1.5px solid var(--red); color: var(--red); border-radius: 4px;
+          display: grid; place-items: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .panel.quiet { background: transparent; border-style: dashed; }
+  .panel.quiet .panel-head h2 { font-size: 15px; color: var(--muted); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn { appearance: none; border: 1px solid var(--line-strong); background: var(--card); color: var(--text); font: inherit;
+         padding: 10px 14px; border-radius: 6px; font-size: 15px; font-weight: 500; cursor: pointer;
+         display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+  .btn:hover { background: var(--sunken); }
+  .btn.primary { background: var(--red); color: #fff; border-color: var(--red); font-weight: 600; }
+  .btn.primary:hover { background: var(--red-ink); border-color: var(--red-ink); }
+  @media (prefers-color-scheme: dark) { .btn.primary:hover { background: #b52a3b; border-color: #b52a3b; } }
+  .btn.big { width: 100%; padding: 14px; font-size: 17px; }
+  .btn.small { padding: 6px 10px; font-size: 14px; min-height: 36px; }
+  .btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.quiet:hover { background: var(--sunken); color: var(--text); }
+  .btn.danger { color: var(--red); }
+  .btn.danger:hover { color: var(--red-ink); }
+  .btn:disabled, .btn:disabled:hover { opacity: .45; cursor: default; background: var(--card); }
+  .btn.primary:disabled, .btn.primary:disabled:hover { background: var(--red); }
   input[type=file] { display: none; }
-  #reportInfo { font-size: 14px; margin-bottom: 10px; }
-  #reportInfo b { word-break: break-all; }
-  #status { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1em; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
-  .card-head { display: flex; gap: 10px; padding: 10px; align-items: center; border-bottom: 1px solid var(--line); }
+
+  .file-info { font-size: 15px; margin-bottom: 12px; padding: 10px 12px; background: var(--sunken); border-radius: 6px; }
+  .file-info b { display: block; word-break: break-all; }
+  .file-info .status { display: block; margin-top: 2px; }
+  .capture { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .capture .btn.big { width: auto; }
+  #status { font-size: 14px; color: var(--muted); margin-top: 10px; min-height: 1em; }
+  #status:empty { display: none; }
+  .tip { font-size: 14px; color: var(--muted); margin: 12px 0 0; max-width: 62ch; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+  .legend .l-unsure::before { background: var(--warn-soft); border: 1px solid var(--warn); }
+  .legend .l-bad::before { background: var(--red-soft); border: 1px solid var(--red); }
+
+  /* fogli in coda */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+  .card-head { display: flex; gap: 10px; padding: 12px 14px; align-items: baseline; border-bottom: 1px solid var(--line); }
   .card-head .title { flex: 1; min-width: 0; }
-  .card-head .title b { display: block; font-size: 16px; }
-  .status { font-size: 13px; color: var(--muted); }
+  .card-head .title b { font-size: 16px; }
+  .card-head .count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .card-head .status { display: block; }
+  .status { font-size: 14px; color: var(--muted); }
   .status.ok { color: var(--ok); } .status.warn { color: var(--warn); } .status.err { color: var(--red); }
-  .hu-row { padding: 10px; border-bottom: 1px solid var(--line); }
-  .strip { display: block; width: 100%; border-radius: 6px; margin-bottom: 8px; background: #fff; }
+  .sheet-head { padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--sunken); }
+  .hu-row { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .hu-row:last-of-type { border-bottom: none; }
+  .strip { display: block; width: 100%; border-radius: 4px; margin-bottom: 10px; background: #fff; border: 1px solid var(--line); }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .field .strip { margin: 2px 0 4px; }
-  .sheet-head { padding: 10px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--red) 6%, var(--card)); }
-  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
   .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
-  .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .field.wide { margin-top: 8px; }
-  .field label { font-size: 12px; color: var(--muted); }
-  .field input { width: 100%; font-size: 16px; padding: 9px 10px; border: 1px solid var(--line);
-        border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; -webkit-appearance: none; }
-  .field.hu input { font-variant-numeric: tabular-nums; letter-spacing: .04em; font-weight: 600; }
+  .field .strip { margin: 2px 0 4px; }
+  .field label { font-size: 13px; color: var(--muted); }
+  .field input { width: 100%; font: inherit; font-size: 16px; padding: 9px 10px; border: 1px solid var(--line-strong);
+        border-radius: 6px; background: var(--card); color: var(--text); min-width: 0; -webkit-appearance: none; min-height: 42px; }
+  .field input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+  .field input[inputmode=numeric] { font-variant-numeric: tabular-nums; }
+  .field.hu input { font-weight: 600; letter-spacing: .03em; }
   .field.unsure input { border-color: var(--warn); background: var(--warn-soft); }
   .field.bad input { border-color: var(--red); background: var(--red-soft); }
   .row-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
-  .row-msg { font-size: 12px; color: var(--red); font-weight: 600; }
-  .card-actions { display: flex; gap: 6px; padding: 8px 10px; flex-wrap: wrap; }
-  .empty-state { text-align: center; color: var(--muted); font-size: 14px; padding: 18px 8px; }
+  .row-msg { font-size: 13px; color: var(--red); font-weight: 500; }
+  .card-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); justify-content: space-between; }
+  .empty-state { text-align: center; color: var(--muted); font-size: 15px; padding: 18px 8px 22px; }
+
   footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px);
-           background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
-  footer .inner { max-width: 760px; margin: 0 auto; }
-  .tip { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
-  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
-  .legend .l-unsure::before { background: var(--warn-soft); border: 1px solid var(--warn); }
-  .legend .l-bad::before { background: var(--red-soft); border: 1px solid var(--red); }
+           background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
+  footer .inner { max-width: 728px; margin: 0 auto; }
+
   /* tabella Excel */
   #viewer { width: 100%; max-width: 1100px; height: 100%; max-height: 100dvh; margin: auto; padding: 0; border: none;
             background: var(--card); color: var(--text); display: none; flex-direction: column; }
   #viewer[open] { display: flex; }
-  @media (min-width: 800px) { #viewer { height: 90vh; border-radius: 14px; border: 1px solid var(--line); } }
-  #viewer::backdrop { background: rgba(0, 0, 0, .45); }
-  .v-head { display: flex; gap: 10px; align-items: center; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; border-bottom: 1px solid var(--line); }
-  .v-head .title { flex: 1; min-width: 0; } .v-head .title b { display: block; }
+  @media (min-width: 800px) { #viewer { height: 90vh; border-radius: 8px; border: 1px solid var(--line); } }
+  #viewer::backdrop { background: rgba(10, 12, 15, .5); }
+  .v-head { display: flex; gap: 10px; align-items: center; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+            border-top: 4px solid var(--red); border-bottom: 1px solid var(--line); }
+  .v-head .title { flex: 1; min-width: 0; } .v-head .title b { display: block; font-size: 17px; }
   .v-head .status { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .v-bar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  .v-bar label { font-size: 13px; color: var(--muted); }
-  .v-bar select { font-size: 16px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+  .v-bar { display: flex; gap: 10px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; background: var(--sunken); }
+  .v-bar label { font-size: 14px; color: var(--muted); }
+  .v-bar select { font: inherit; font-size: 16px; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--card); color: var(--text); }
   .v-table { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
-  .v-table table { border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 100%; }
-  .v-table th { position: sticky; top: 0; z-index: 1; background: var(--red); color: #fff; font-weight: 600; text-align: left; padding: 8px; white-space: nowrap; }
-  .v-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .v-table table { border-collapse: separate; border-spacing: 0; font-size: 14px; min-width: 100%; }
+  .v-table th { position: sticky; top: 0; z-index: 1; background: var(--card); color: var(--muted); font-weight: 600; font-size: 13px;
+                text-align: left; padding: 10px 8px; white-space: nowrap; border-bottom: 2px solid var(--line-strong); }
+  .v-table td { padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
   .v-table td.num { font-variant-numeric: tabular-nums; text-align: right; }
   .v-table tbody tr { cursor: pointer; }
+  .v-table tbody tr:hover td { background: var(--sunken); }
   .v-table tbody tr.sel td { background: var(--red-soft); }
-  .v-table th:first-child, .v-table td:first-child { width: 36px; text-align: center; padding: 7px 4px 7px 12px; }
-  .v-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--red); }
-  .v-empty { padding: 30px 16px; text-align: center; color: var(--muted); }
-  .v-foot { padding: 10px 16px calc(env(safe-area-inset-bottom) + 10px); border-top: 1px solid var(--line); }
-  .v-check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .v-table th:first-child, .v-table td:first-child { width: 40px; text-align: center; padding-left: 14px; }
+  .v-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--red); margin: 0; vertical-align: middle; }
+  .v-empty { padding: 32px 16px; text-align: center; color: var(--muted); }
+  .v-foot { padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px); border-top: 1px solid var(--line); }
+  .v-check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); margin-top: 10px; }
+  .v-check input { width: 18px; height: 18px; accent-color: var(--red); margin: 0; }
+  #vMsg.done { color: var(--ok); }
+
+  @media (max-width: 380px) { .grid4 { grid-template-columns: 1fr 1fr; } .capture { grid-template-columns: 1fr; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 </head>
 <body>
-<header>
+<header class="app-head"><div class="inner">
   <h1>Ricontrolli</h1>
-  <p>Fogli Gesperrt / Bloccato → Excel (una riga per HU)</p>
-</header>
+  <p>Registrazione dei fogli Gesperrt-Bloccato in Excel, una riga per HU</p>
+</div></header>
 
 <main>
-  <section class="panel">
-    <h2>1 · File Excel</h2>
-    <div id="reportInfo">Nessun file aperto: al primo salvataggio ne creo uno nuovo.</div>
+  <section class="panel" aria-labelledby="hFile">
+    <div class="panel-head"><span class="step" aria-hidden="true">1</span><h2 id="hFile">File Excel</h2></div>
+    <div id="reportInfo" class="file-info">Nessun file aperto. Al primo salvataggio ne viene creato uno nuovo.</div>
     <div class="row">
-      <label class="btn" for="xlsxInput">📂 Apri file Excel</label>
-      <button class="btn" id="viewBtn" disabled>👁 Vedi tabella</button>
-      <button class="btn" id="resetBtn">↺ Reset</button>
+      <label class="btn" for="xlsxInput" tabindex="0">Apri file Excel</label>
+      <button class="btn" id="viewBtn" disabled>Vedi tabella</button>
+      <button class="btn quiet danger" id="resetBtn">Reset</button>
     </div>
     <input type="file" id="xlsxInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-    <p class="tip">Per <b>continuare</b> il file condiviso: <b>Apri file Excel</b> e sceglilo nella cartella OneDrive. Per <b>ricominciare</b> con un file nuovo: <b>Reset</b>. Ogni giorno del foglio di carta ha il suo foglio di lavoro.</p>
+    <p class="tip">Per continuare il file condiviso, aprilo dalla cartella OneDrive. Per iniziare un file nuovo, usa Reset. Ogni data scritta sul foglio ha il suo foglio di lavoro.</p>
   </section>
 
-  <section class="panel">
-    <h2>2 · Fogli da registrare</h2>
-    <label class="btn primary big" for="camInput">📷 Scatta foto</label>
-    <input type="file" id="camInput" accept="image/*" capture="environment">
-    <div class="row" style="justify-content:center;margin-top:8px"><label class="btn small" for="imgInput">🖼 Scegli dalla galleria</label></div>
-    <input type="file" id="imgInput" accept="image/*" multiple>
-    <div id="status"></div>
-    <p class="tip">Fotografa il foglio <b>intero</b> (si deve vedere tutta la cornice rossa), dall'alto, con buona luce. Va bene anche girato.</p>
-    <div class="legend"><span class="l-unsure">lettura incerta</span><span class="l-bad">da correggere</span></div>
-  </section>
-
-  <div id="cards"><div class="empty-state">Nessun foglio in coda.</div></div>
-
-  <section class="panel">
-    <h2>3 · Migliora la lettura</h2>
-    <div id="trainInfo" class="tip" style="margin-top:0">…</div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" id="exportTrain">📤 Esporta correzioni</button>
-      <button class="btn" id="clearTrain">Svuota</button>
+  <section class="panel" aria-labelledby="hSheets">
+    <div class="panel-head"><span class="step" aria-hidden="true">2</span><h2 id="hSheets">Fogli da registrare</h2></div>
+    <div class="capture">
+      <label class="btn primary big" for="camInput" tabindex="0">Scatta foto</label>
+      <label class="btn" for="imgInput" tabindex="0">Dalla galleria</label>
     </div>
-    <p class="tip">Ogni volta che salvi, l'app ricorda le cifre lette e i valori corretti. Mandami il file esportato: riaddestro il modello sulla tua calligrafia.</p>
+    <input type="file" id="camInput" accept="image/*" capture="environment">
+    <input type="file" id="imgInput" accept="image/*" multiple>
+    <div id="status" role="status"></div>
+    <p class="tip">Fotografa il foglio intero, con tutta la cornice rossa visibile, dall'alto e con buona luce. Può anche essere girato.</p>
+    <div class="legend"><span class="l-unsure">Lettura incerta</span><span class="l-bad">Da correggere</span></div>
+  </section>
+
+  <div id="cards"><div class="empty-state">Nessun foglio in coda. Scatta la foto del primo foglio.</div></div>
+
+  <section class="panel quiet" aria-labelledby="hTrain">
+    <div class="panel-head"><h2 id="hTrain">Migliora la lettura</h2></div>
+    <div id="trainInfo" class="status"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="exportTrain">Esporta correzioni</button>
+      <button class="btn quiet danger" id="clearTrain">Svuota</button>
+    </div>
+    <p class="tip">A ogni salvataggio l'app conserva le cifre lette e i valori corretti. Il file esportato serve a riaddestrare il modello sulla calligrafia dei fogli.</p>
   </section>
 </main>
 
 <dialog id="viewer" aria-labelledby="vTitle">
   <div class="v-head">
     <div class="title"><b id="vTitle">Tabella Excel</b><span class="status" id="vFile"></span></div>
-    <button class="btn small" id="vClose" aria-label="Chiudi">✕ Chiudi</button>
+    <button class="btn small" id="vClose">Chiudi</button>
   </div>
   <div class="v-bar">
     <label for="vDay">Giorno</label>
@@ -153,9 +210,9 @@
   <div class="v-table"></div>
   <div class="v-foot">
     <div class="row">
-      <button class="btn primary" id="vCopySel" disabled>📋 Copia selezionate</button>
-      <button class="btn" id="vCopyAll">📋 Copia tutto il giorno</button>
-      <button class="btn" id="vDownload">⬇ Scarica Excel</button>
+      <button class="btn primary" id="vCopySel" disabled>Copia selezionate</button>
+      <button class="btn" id="vCopyAll">Copia tutto il giorno</button>
+      <button class="btn" id="vDownload">Scarica Excel</button>
     </div>
     <label class="v-check"><input type="checkbox" id="vWithHead"> Copia anche l'intestazione</label>
     <p class="tip" id="vMsg">Tocca le righe che ti servono, poi copia e incolla in Excel: le colonne restano separate.</p>
@@ -163,7 +220,7 @@
 </dialog>
 
 <footer><div class="inner">
-  <button class="btn primary big" id="saveBtn" disabled>💾 Salva su Excel</button>
+  <button class="btn primary big" id="saveBtn" disabled>Salva su Excel</button>
 </div></footer>
 
 <script>
@@ -676,7 +733,7 @@ function newDaySheet(wb, name, iso) {
   ws.columns = XCOLS.map(c => ({ width: c.w }));
   ws.mergeCells(1, 1, 1, XCOLS.length);
   const t = ws.getCell(1, 1);
-  t.value = 'Ricontrolli · ' + (iso ? iso.split('-').reverse().join('/') : 'senza data');
+  t.value = 'Ricontrolli del ' + (iso ? iso.split('-').reverse().join('/') : 'giorno non indicato');
   t.font = { name: 'Calibri', bold: true, size: 14, color: { argb: RED } };
   t.alignment = { vertical: 'middle' };
   ws.getRow(1).height = 26;
@@ -826,7 +883,7 @@ function addFiles(list) {
         sh.head = { ...res.head, pred: { ...res.head }, conf: res.conf };
         const s = ((performance.now() - t0) / 1000).toFixed(1);
         sh.status = sh.rows.length ? 'ok' : 'warn';
-        sh.msg = sh.rows.length ? `${sh.rows.length} HU letti in ${s}s: controlla i campi colorati.` : 'Nessuna riga trovata: aggiungile a mano.';
+        sh.msg = sh.rows.length ? `Letti ${sh.rows.length} HU in ${s.replace('.', ',')} s. Controlla i campi colorati.` : 'Nessuna riga trovata. Aggiungi le righe a mano.';
       } catch (e) {
         console.error(e);
         sh.status = 'err'; sh.msg = e.message.startsWith('model.bin') ? 'Modello non caricato: serve internet.' : e.message;
@@ -873,7 +930,7 @@ function inputEl(r, k, label, opts = {}) {
     opts.onInput?.();
     mark(); save(); updateSave();
     const msg = wrap.closest('.hu-row')?.querySelector('.row-msg');
-    if (msg) msg.textContent = rowProblems(r).join(' · ');
+    if (msg) msg.textContent = rowProblems(r).join('; ');
   });
   mark();
   wrap.append(lab, inp);
@@ -892,12 +949,13 @@ function followDown(sh, r, k) {
 function renderAll() {
   const box = $('#cards');
   box.innerHTML = '';
-  if (!sheets.length) { box.innerHTML = '<div class="empty-state">Nessun foglio in coda.</div>'; updateSave(); return; }
+  if (!sheets.length) { box.innerHTML = '<div class="empty-state">Nessun foglio in coda. Scatta la foto del primo foglio.</div>'; updateSave(); return; }
   sheets.forEach((sh, n) => {
     const card = document.createElement('div'); card.className = 'card';
     const head = document.createElement('div'); head.className = 'card-head';
-    head.innerHTML = '<div class="title"><b></b><span class="status"></span></div>';
-    head.querySelector('b').textContent = `Foglio ${n + 1}` + (sh.rows.length ? ` · ${sh.rows.length} HU` : '');
+    head.innerHTML = '<div class="title"><b></b><span class="status"></span></div><span class="count"></span>';
+    head.querySelector('b').textContent = `Foglio ${n + 1}`;
+    head.querySelector('.count').textContent = sh.rows.length ? `${sh.rows.length} HU` : '';
     const st = head.querySelector('.status'); st.textContent = sh.msg || ''; if (sh.status) st.classList.add(sh.status);
     card.append(head);
     if (sh.status !== 'err' && sh.msg !== 'In coda…' && sh.msg !== 'Lettura…') {
@@ -920,8 +978,8 @@ function renderAll() {
       const note = inputEl(r, 'note', 'Note', { cls: 'wide' });
       if (mem[r.id]?.noteStrip) { const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Note scritte sul foglio'; im.src = mem[r.id].noteStrip; note.querySelector('label').after(im); }
       const foot = document.createElement('div'); foot.className = 'row-foot';
-      const msg = document.createElement('span'); msg.className = 'row-msg'; msg.textContent = rowProblems(r).join(' · ');
-      const del = document.createElement('button'); del.className = 'btn small'; del.textContent = '🗑 Riga';
+      const msg = document.createElement('span'); msg.className = 'row-msg'; msg.textContent = rowProblems(r).join('; ');
+      const del = document.createElement('button'); del.className = 'btn small quiet danger'; del.textContent = 'Elimina riga';
       del.onclick = () => { if (confirm('Eliminare questa riga?')) { sh.rows = sh.rows.filter(o => o !== r); delete mem[r.id]; save(); renderAll(); } };
       foot.append(msg, del);
       rw.append(g, g3, note, foot);
@@ -929,13 +987,13 @@ function renderAll() {
     });
 
     const act = document.createElement('div'); act.className = 'card-actions';
-    const add = document.createElement('button'); add.className = 'btn small'; add.textContent = '＋ Aggiungi riga';
+    const add = document.createElement('button'); add.className = 'btn small'; add.textContent = 'Aggiungi riga';
     add.onclick = () => {
       const last = sh.rows[sh.rows.length - 1];
       sh.rows.push(newRow({ data: last ? last.data : today(), oper: last ? last.oper || '' : '' }));
       save(); renderAll();
     };
-    const del = document.createElement('button'); del.className = 'btn small'; del.textContent = '🗑 Rimuovi foglio';
+    const del = document.createElement('button'); del.className = 'btn small quiet danger'; del.textContent = 'Rimuovi foglio';
     del.onclick = () => { if (confirm('Rimuovere questo foglio dalla coda?')) { sh.rows.forEach(r => delete mem[r.id]); sheets = sheets.filter(o => o !== sh); save(); renderAll(); } };
     act.append(add, del);
     card.append(act);
@@ -950,19 +1008,19 @@ const excelRows = () => sheets.flatMap(s => s.rows.map(r => ({ ...r, scart: r.sc
 function updateSave() {
   const n = allRows().length, b = $('#saveBtn');
   b.disabled = !n;
-  b.textContent = n ? `💾 Salva su Excel (${n} HU)` : '💾 Salva su Excel';
+  b.textContent = n ? `Salva ${n} HU su Excel` : 'Salva su Excel';
 }
 const fmtWhen = t => { const d = new Date(t); return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' alle ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
 function updateReportInfo() {
   $('#reportInfo').innerHTML = report.fileName
-    ? `File: <b></b><br><span class="status">${report.hus.size} HU già presenti${report.at ? ' · aggiornato il ' + fmtWhen(report.at) : ''}</span>`
-    : 'Nessun file aperto: al primo salvataggio ne creo uno nuovo.';
+    ? `<b></b><span class="status">${report.hus.size} HU registrati${report.at ? ', aggiornato il ' + fmtWhen(report.at) : ''}</span>`
+    : 'Nessun file aperto. Al primo salvataggio ne viene creato uno nuovo.';
   if (report.fileName) $('#reportInfo b').textContent = report.fileName;
   $('#viewBtn').disabled = !report.buf;
 }
 async function updateTrainInfo() {
-  try { const n = await db.count(); $('#trainInfo').textContent = `${n} campi salvati per l'addestramento · modello v${MODEL_VERSION}`; }
-  catch { $('#trainInfo').textContent = `Archivio correzioni non disponibile · modello v${MODEL_VERSION}`; }
+  try { const n = await db.count(); $('#trainInfo').textContent = `${n} campi salvati per l'addestramento, modello versione ${MODEL_VERSION}`; }
+  catch { $('#trainInfo').textContent = `Archivio correzioni non disponibile, modello versione ${MODEL_VERSION}`; }
 }
 
 $('#xlsxInput').addEventListener('change', async e => {
@@ -1072,9 +1130,9 @@ function workbookTables(wb) {
 const viewer = { tables: [], t: null, sel: new Set() };
 function viewerButtons() {
   const T = viewer.t, n = viewer.sel.size;
-  $('#vCount').textContent = T ? `${T.rows.length} HU` + (n ? ` · ${n} selezionate` : '') : '';
+  $('#vCount').textContent = T ? `${T.rows.length} HU` + (n ? `, ${n} selezionate` : '') : '';
   $('#vCopySel').disabled = !n;
-  $('#vCopySel').textContent = n ? `📋 Copia selezionate (${n})` : '📋 Copia selezionate';
+  $('#vCopySel').textContent = n ? `Copia ${n} ${n === 1 ? 'riga' : 'righe'}` : 'Copia selezionate';
   $('#vCopyAll').disabled = !T || !T.rows.length;
   const all = $('#vAll'); if (all) all.checked = !!T && T.rows.length > 0 && n === T.rows.length;
 }
@@ -1110,11 +1168,12 @@ $('#viewBtn').onclick = async () => {
   if (!report.buf) return;
   try { viewer.tables = workbookTables(await loadWorkbook(report.buf)); }
   catch (e) { console.error(e); alert('Non riesco a leggere il file Excel.'); return; }
-  $('#vFile').textContent = report.fileName + (report.at ? ' · ' + fmtWhen(report.at) : '');
+  $('#vFile').textContent = report.fileName + (report.at ? ', aggiornato il ' + fmtWhen(report.at) : '');
   const sel = $('#vDay'); sel.innerHTML = '';
   viewer.tables.forEach(t => { const o = document.createElement('option'); o.value = t.name; o.textContent = `${t.name.replace(/-/g, '/')} (${t.rows.length})`; sel.append(o); });
   sel.disabled = viewer.tables.length < 2;
-  $('#vMsg').textContent = 'Tocca le righe che ti servono, poi copia e incolla in Excel: le colonne restano separate.';
+  $('#vMsg').textContent = 'Tocca le righe che ti servono, poi copiale e incollale in Excel: le colonne restano separate.';
+  $('#vMsg').classList.remove('done');
   pickDay(viewer.tables[0]?.name);
   $('#viewer').showModal();
 };
@@ -1132,7 +1191,8 @@ async function copyRows(idx) {
   const lines = idx.map(i => T.rows[i].join('\t'));
   if ($('#vWithHead').checked) lines.unshift(T.head.join('\t'));
   const ok = await copyText(lines.join('\r\n'));
-  $('#vMsg').textContent = ok ? `✅ Copiate ${idx.length} righe: ora incollale in Excel (Ctrl+V).` : 'Copia non riuscita: usa "Scarica Excel".';
+  $('#vMsg').textContent = ok ? `Copiate ${idx.length} ${idx.length === 1 ? 'riga' : 'righe'}. Incollale in Excel con Ctrl+V.` : 'Copia non riuscita. Usa Scarica Excel.';
+  $('#vMsg').classList.toggle('done', ok);
 }
 $('#vCopySel').onclick = () => copyRows([...viewer.sel].sort((a, b) => a - b));
 $('#vCopyAll').onclick = () => copyRows(viewer.t ? viewer.t.rows.map((_, i) => i) : []);
@@ -1144,6 +1204,11 @@ $('#vDownload').onclick = async () => {
     else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); }
   } catch (e) { if (e.name !== 'AbortError') alert('Download non riuscito: ' + e.message); }
 };
+
+// le etichette usate come pulsanti (scelta file) si aprono anche da tastiera
+document.querySelectorAll('label.btn[for]').forEach(l => l.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById(l.htmlFor).click(); }
+}));
 
 renderAll();
 updateReportInfo();
