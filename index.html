@@ -188,6 +188,19 @@
 
   <div id="cards"><div class="empty-state">Nessun foglio in coda.</div></div>
 
+  <section class="panel quiet" aria-labelledby="hAI">
+    <div class="panel-head"><h2 id="hAI">Lettura con AI</h2></div>
+    <div id="aiInfo" class="status"></div>
+    <div class="field wide"><label for="aiUrl">Indirizzo del Worker</label>
+      <input id="aiUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://ricontrolli-ai.nome.workers.dev"></div>
+    <div class="field wide"><label for="aiToken">Parola d'accesso</label>
+      <input id="aiToken" type="password" autocomplete="off"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="aiSave">Salva</button>
+      <button class="btn quiet danger" id="aiOff">Disattiva</button>
+    </div>
+  </section>
+
   <section class="panel quiet" aria-labelledby="hTrain">
     <div class="panel-head"><h2 id="hTrain">Migliora la lettura</h2></div>
     <div id="trainInfo" class="status"></div>
@@ -757,6 +770,71 @@ async function readSheet(file) {
   return { rows, ...header };
 }
 
+// ===================== LETTURA CON AI (Gemini, tramite il Worker in worker/) =====================
+const aiCfg = () => ({ url: store.get('ric_ai_url', ''), token: store.get('ric_ai_token', '') });
+const digits = v => v == null ? '' : String(v).replace(/\D/g, '');
+const isISO = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+// immagine della tabella raddrizzata, da mostrare sopra le righe per controllare (solo se trovo la cornice)
+function tableURL(P) {
+  try {
+    const fr = findFrame(P);
+    if (!fr || fr.cut) return null;
+    const rgba = warp(P, orient(P, fr.q), REG);
+    const c = document.createElement('canvas'); c.width = REG.w; c.height = REG.h;
+    c.getContext('2d').putImageData(new ImageData(rgba, REG.w, REG.h), 0, 0);
+    return c.toDataURL('image/jpeg', 0.8);
+  } catch (e) { console.error(e); return null; }
+}
+async function readSheetAI(file, cfg) {
+  const img = await loadImage(file);
+  const s = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0, c.width, c.height);
+  const jpeg = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+  const table = tableURL({ d: g.getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height });
+
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 90000);
+  let res;
+  try {
+    res = await fetch(cfg.url, {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'Content-Type': 'application/json', ...(cfg.token ? { 'X-Access-Token': cfg.token } : {}) },
+      body: JSON.stringify({ image: jpeg, mime: 'image/jpeg', today: today() }),
+    });
+  } catch (e) { throw new Error(e.name === 'AbortError' ? 'l\'AI non ha risposto in tempo' : 'AI non raggiungibile'); }
+  finally { clearTimeout(timer); }
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error || `errore ${res.status}`);
+
+  const head = { denom: String(out.denom || '').trim(), codice: digits(out.codice), motivo: String(out.motivo || '').trim(), bdata: isISO(out.data_blocco) ? out.data_blocco : '' };
+  const conf = { denom: 0.95, codice: /^\d{9}$/.test(head.codice) ? 0.95 : 0.3, motivo: 0.95, bdata: head.bdata ? 0.95 : 0 };
+  const rows = [];
+  let lastDate = '';
+  for (const x of Array.isArray(out.righe) ? out.righe : []) {
+    const r = newRow({ hu: digits(x.hu), contr: digits(x.contr), ril: digits(x.ril), scart: digits(x.scart), note: String(x.note || '').trim() });
+    if (!r.hu && !r.contr) continue;
+    const dubbi = new Set(Array.isArray(x.dubbi) ? x.dubbi : []);
+    if (isISO(x.data) && x.data <= today()) lastDate = r.data = x.data;
+    else { r.data = lastDate || head.bdata || today(); dubbi.add('data'); }
+    for (const k of ['data', 'hu', 'contr', 'ril', 'scart']) { r.pred[k] = r[k]; r.conf[k] = dubbi.has(k) ? 0.3 : 0.95; }
+    rows.push(r);
+  }
+  return { rows, head, conf, table };
+}
+// prova l'AI; se non è configurata o non risponde usa il modello locale
+async function readAny(file) {
+  const cfg = aiCfg();
+  if (!cfg.url) return { ...(await readSheet(file)), via: 'local' };
+  try { return { ...(await readSheetAI(file, cfg)), via: 'ai' }; }
+  catch (e) {
+    console.error(e);
+    try { return { ...(await readSheet(file)), via: 'local', aiErr: e.message }; }
+    catch (e2) { throw new Error(`AI: ${e.message}. Modello locale: ${e2.message}`); }
+  }
+}
+
 // ===================== EXCEL =====================
 const XCOLS = [
   { k: 'data', l: 'Data', w: 12, date: true },
@@ -943,15 +1021,17 @@ function addFiles(list) {
       await new Promise(r => setTimeout(r, 30));     // lascia disegnare la pagina
       const t0 = performance.now();
       try {
-        const res = await readSheet(f);
+        const res = await readAny(f);
         sh.rows = res.rows;
         sh.head = { ...res.head, pred: { ...res.head }, conf: res.conf };
-        const s = ((performance.now() - t0) / 1000).toFixed(1);
-        sh.status = sh.rows.length ? 'ok' : 'warn';
-        sh.msg = sh.rows.length ? `Letti ${sh.rows.length} HU in ${s.replace('.', ',')} s. Controlla i campi colorati.` : 'Nessuna riga trovata. Aggiungi le righe a mano.';
+        if (res.table) mem[sh.id] = { table: res.table };
+        const s = ((performance.now() - t0) / 1000).toFixed(1).replace('.', ',');
+        const via = res.via === 'ai' ? ' con AI' : res.aiErr ? ` con il modello locale (AI: ${res.aiErr})` : '';
+        sh.status = sh.rows.length && !res.aiErr ? 'ok' : 'warn';
+        sh.msg = sh.rows.length ? `Letti ${sh.rows.length} HU${via} in ${s} s. Controlla i campi colorati.` : `Nessuna riga trovata${via}. Aggiungi le righe a mano.`;
       } catch (e) {
         console.error(e);
-        sh.status = 'err'; sh.msg = e.message.startsWith('model.bin') ? 'Modello non caricato: serve internet.' : e.message;
+        sh.status = 'err'; sh.msg = e.message.includes('model.bin') ? 'Modello non caricato: serve internet.' : e.message;
       }
       save(); renderAll();
     });
@@ -1031,6 +1111,11 @@ function renderAll() {
       hb.append(g, inputEl(sh.head, 'motivo', 'Motivo', { cls: 'wide' }));
       card.append(hb);
     }
+    if (mem[sh.id]?.table) {                          // lettura AI: la tabella del foglio, per confrontare con i campi
+      const tb = document.createElement('div'); tb.className = 'hu-row';
+      const im = document.createElement('img'); im.className = 'strip'; im.alt = 'Tabella del foglio'; im.src = mem[sh.id].table;
+      im.style.marginBottom = '0'; tb.append(im); card.append(tb);
+    }
 
     sh.rows.forEach(r => {
       const rw = document.createElement('div'); rw.className = 'hu-row';
@@ -1069,7 +1154,7 @@ function renderAll() {
       save(); renderAll();
     };
     const del = document.createElement('button'); del.className = 'btn small quiet danger'; del.textContent = 'Rimuovi foglio';
-    del.onclick = () => { if (confirm('Rimuovere questo foglio dalla coda?')) { sh.rows.forEach(r => delete mem[r.id]); sheets = sheets.filter(o => o !== sh); save(); renderAll(); } };
+    del.onclick = () => { if (confirm('Rimuovere questo foglio dalla coda?')) { sh.rows.forEach(r => delete mem[r.id]); delete mem[sh.id]; sheets = sheets.filter(o => o !== sh); save(); renderAll(); } };
     act.append(add, del);
     card.append(act);
     box.append(card);
@@ -1173,6 +1258,20 @@ $('#exportTrain').onclick = async () => {
     setStatus(`Esportati ${all.length} campi (${fixed} corretti a mano).`);
   } catch (e) { if (e.name !== 'AbortError') alert('Esportazione non riuscita: ' + e.message); }
 };
+function updateAIInfo() {
+  const c = aiCfg();
+  $('#aiUrl').value = c.url; $('#aiToken').value = c.token;
+  $('#aiInfo').textContent = c.url ? 'Attiva: i fogli vengono letti con Gemini. Se non risponde uso il modello locale.'
+    : 'Non configurata: uso il modello locale. Istruzioni in worker/README.md.';
+  $('#aiInfo').className = 'status' + (c.url ? ' ok' : '');
+}
+$('#aiSave').onclick = () => {
+  const url = $('#aiUrl').value.trim();
+  if (url && !/^https:\/\/\S+$/.test(url)) { alert('L\'indirizzo deve iniziare con https://'); return; }
+  store.set('ric_ai_url', url); store.set('ric_ai_token', $('#aiToken').value.trim());
+  updateAIInfo(); setStatus(url ? 'Lettura con AI attivata.' : 'Lettura con AI disattivata.');
+};
+$('#aiOff').onclick = () => { store.set('ric_ai_url', ''); store.set('ric_ai_token', ''); updateAIInfo(); setStatus('Lettura con AI disattivata.'); };
 $('#clearTrain').onclick = async () => {
   if (!confirm('Cancellare le correzioni salvate? Fallo solo dopo averle esportate.')) return;
   try { await db.clear(); } catch {}
@@ -1288,6 +1387,7 @@ document.querySelectorAll('label.btn[for]').forEach(l => l.addEventListener('key
 renderAll();
 updateReportInfo();
 updateTrainInfo();
+updateAIInfo();
 restoreReport();
 if (allRows().length) setStatus(`Ripristinati ${allRows().length} HU non ancora salvati (senza immagini).`);
 loadModel().catch(() => setStatus('Modello non caricato: serve internet la prima volta.'));
